@@ -1,6 +1,6 @@
 # El Costas
 
-A personal, local-only expense tracker for the desktop: **macOS** (Apple Silicon and Intel), **Windows**, and **Linux**. You record transactions in a plain CSV file, through the app or by hand, and El Costas turns them into dashboards so you can see where your money goes.
+A personal, local-only expense tracker for the desktop: **macOS** (Apple Silicon), **Windows**, and **Linux**. You record transactions in a plain CSV file, through the app or by hand, and El Costas turns them into dashboards so you can see where your money goes.
 
 - **Local only.** No server, no cloud, no account, no network calls.
 - **Plain files.** Your data is CSV and TOML you can open in any text editor.
@@ -158,14 +158,16 @@ Every build lands in `build/bin/`. Builds aren't code-signed: that's fine on the
 
 | Target | Build on | Command | Output |
 |--------|----------|---------|--------|
-| macOS, Apple Silicon + Intel | macOS | `nix develop .#release` then `wails build -clean -trimpath -platform darwin/universal` | `el-costas.app` |
-| macOS, Apple Silicon only | macOS | `nix develop` then `wails build -clean -trimpath -platform darwin/arm64` | `el-costas.app` |
-| macOS, Intel only | macOS | `nix develop .#release` then `wails build -clean -trimpath -platform darwin/amd64` | `el-costas.app` |
-| Windows x64 / ARM | macOS or Linux | `nix develop` then `wails build -clean -trimpath -platform windows/amd64` (or `windows/arm64`) | `el-costas.exe` |
-| Linux x64 / ARM | Linux, same CPU type | `nix develop` then `wails build -clean -trimpath -tags webkit2_41` | `el-costas` |
+All builds run inside `nix develop`:
+
+| Target | Build on | Command | Output |
+|--------|----------|---------|--------|
+| macOS, Apple Silicon | Apple Silicon Mac | `wails build -clean -trimpath -platform darwin/arm64` | `el-costas.app` |
+| Windows x64 / ARM | macOS or Linux | `wails build -clean -trimpath -platform windows/amd64` (or `windows/arm64`) | `el-costas.exe` |
+| Linux x64 / ARM | Linux, same CPU type | `wails build -clean -trimpath -tags webkit2_41` | `el-costas` |
 
 Notes:
-- **macOS Intel and universal builds need the `release` shell.** The regular dev shell's compiler only links Apple Silicon binaries. The `release` shell uses Apple's own clang from the Command Line Tools instead.
+- **Intel Macs aren't supported yet.** The Nix toolchain on Apple Silicon can't link Intel binaries; this is planned for a later phase.
 - **Linux builds can't be cross-compiled** (they link against GTK), so build on Linux. A binary built from the Nix shell expects GTK and WebKitGTK 4.1 to be installed on the system that runs it.
 - **Windows:** the `.exe` needs the WebView2 runtime, which ships with Windows 10 and 11. Copy it anywhere and run it.
 

@@ -60,19 +60,6 @@
               echo "  home:  $EL_COSTAS_HOME"
             '';
           };
-        } // pkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
-          # macOS release builds. Nix's clang wrapper ships arm64-only system
-          # libs, so darwin/amd64 and darwin/universal fail to link with it.
-          # This shell has no Nix C toolchain and uses Apple's clang instead.
-          release = pkgs.mkShellNoCC {
-            packages = appTools;
-            CGO_ENABLED = "1";
-            shellHook = ''
-              export CC=/usr/bin/clang CXX=/usr/bin/clang++
-              unset EL_COSTAS_HOME
-              echo "El Costas macOS release shell (Apple clang)"
-            '';
-          };
         });
     };
 }

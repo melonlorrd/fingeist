@@ -17,7 +17,7 @@ Build only the current phase. If a task needs something from a later phase, ask.
 |-------|----------|
 | **MVP** ← current | One project. Add/edit/delete transactions in the UI. CSV load/save (atomic, backups, external-edit detection). `dashboard.toml` with three chart types: monthly totals (bar), by category, daily calendar heatmap. Date-range filter. |
 | **2** | Multiple projects: create, switch, separate dashboards. |
-| **Later** | Bank CSV import + dedupe, budgets, tag filters, more chart types. Maybe mixed currencies in one project (needs historical rates). |
+| **Later** | Intel macOS builds. Bank CSV import + dedupe, budgets, tag filters, more chart types. Maybe mixed currencies in one project (needs historical rates). |
 | **Never** | Sync, cloud, accounts, multi-user, telemetry, network calls, a database. |
 
 ## How to work
@@ -34,8 +34,8 @@ Build only the current phase. If a task needs something from a later phase, ask.
 
 - Work inside `nix develop`. Need a tool? Add it to `flake.nix`; never install globally. Don't run `nix flake update` unless asked.
 - The dev shell points `EL_COSTAS_HOME` at `data/dev/`. Don't override it.
-- Targets: macOS (arm64, amd64, universal), Windows (amd64, arm64), Linux (amd64, arm64). Build commands are in README → *Building for daily use*.
-- On Linux, pass `-tags webkit2_41` to `wails dev` and `wails build`. macOS Intel and universal builds need `nix develop .#release`.
+- Targets: macOS (arm64), Windows (amd64, arm64), Linux (amd64, arm64). Every build must work from plain `nix develop`; if a target needs anything outside Nix, it waits for a later phase. Build commands are in README → *Building for daily use*.
+- On Linux, pass `-tags webkit2_41` to `wails dev` and `wails build`.
 - If a build fails to link, report the error; don't work around it.
 
 **Done means:** `gofmt -l .` prints nothing, `go vet ./...` and `go test ./...` pass. For UI changes, say what to check in `wails dev`; don't claim you verified it.
@@ -68,7 +68,8 @@ The full format is in README → *Data files*. These are the invariants:
 ## Code style
 
 - Standard Go: `gofmt`, idiomatic names, errors wrapped with `%w`, no panics in library code.
-- Small functions, focused files. Comments explain *why*, only where it isn't obvious.
+- Small functions, focused files.
+- **Readable code over comments.** Make the code explain itself with clear names, small functions, and plain control flow. Comment only when something can't be made obvious in code (a workaround, an OS quirk, a non-obvious *why*), in one short plain sentence. No comments that restate the code, no per-line narration, no banner or section comments, and no doc comments on unexported functions. Keep doc comments on exported identifiers to one line.
 - Table-driven tests; fixtures in `testdata/` next to the package.
 - Frontend: vanilla JS modules, no framework, one ECharts option-builder per chart type.
 
