@@ -1,11 +1,15 @@
 # Dev scratch copy of sample data (see flake.nix shellHook)
 data/dev/
 
+# Temporary design screenshots (see AGENTS.md)
+reference-images/
+
 # Wails / frontend build output
 build/bin/
-frontend/dist/*
-!frontend/dist/gitkeep
+frontend/dist/
 frontend/node_modules/
+tools/screenshots/node_modules/
+tools/screenshots/out/
 
 .direnv/
 .DS_Store

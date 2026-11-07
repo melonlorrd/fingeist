@@ -14,7 +14,11 @@ import (
 	"el-costas/internal/domain"
 )
 
-const backupsToKeep = 20
+const (
+	backupsToKeep  = 20
+	backupInterval = 10 * time.Minute
+	backupTimeFmt  = "20060102T150405.000000000Z"
+)
 
 // ErrExternalChange means the file on disk is not the one that was loaded.
 var ErrExternalChange = errors.New("transactions file changed on disk")
@@ -22,6 +26,12 @@ var ErrExternalChange = errors.New("transactions file changed on disk")
 // Save writes the transactions atomically after backing up the old file. expectedHash is
 // the hash from the last load or save; if the file no longer matches, nothing is written.
 func Save(path string, txns []domain.Transaction, decimals int, expectedHash string, now time.Time) (string, error) {
+	return saveTable(path, txns, transactionFormat(decimals, time.UTC), expectedHash, now)
+}
+
+// SaveFile writes data atomically after backing up the old content. expectedHash is the hash
+// of the file when it was last read, "" if it did not exist; on a mismatch nothing is written.
+func SaveFile(path string, data []byte, expectedHash string, now time.Time) (string, error) {
 	current, err := os.ReadFile(path)
 	exists := err == nil
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -35,10 +45,6 @@ func Save(path string, txns []domain.Transaction, decimals int, expectedHash str
 		return "", ErrExternalChange
 	}
 
-	data, err := encode(txns, decimals)
-	if err != nil {
-		return "", fmt.Errorf("encode transactions: %w", err)
-	}
 	if exists {
 		if err := backup(path, current, now); err != nil {
 			return "", err
@@ -56,27 +62,48 @@ func backup(path string, content []byte, now time.Time) error {
 		return fmt.Errorf("create backups folder: %w", err)
 	}
 
-	stem := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)) + "-"
-	name := stem + now.UTC().Format("20060102T150405.000000000Z") + ".csv"
+	ext := filepath.Ext(path)
+	stem := strings.TrimSuffix(filepath.Base(path), ext) + "-"
+	names, err := listBackups(dir, stem, ext)
+	if err != nil {
+		return err
+	}
+	if len(names) > 0 && backedUpRecently(names[len(names)-1], stem, ext, now) {
+		return nil
+	}
+
+	name := stem + now.UTC().Format(backupTimeFmt) + ext
 	if err := os.WriteFile(filepath.Join(dir, name), content, 0o600); err != nil {
 		return fmt.Errorf("write backup: %w", err)
 	}
-	return pruneBackups(dir, stem)
+	return pruneBackups(dir, append(names, name))
 }
 
-func pruneBackups(dir, stem string) error {
+func backedUpRecently(name, stem, ext string, now time.Time) bool {
+	taken, err := time.Parse(backupTimeFmt, strings.TrimSuffix(strings.TrimPrefix(name, stem), ext))
+	if err != nil {
+		return false
+	}
+	age := now.Sub(taken)
+	return age >= 0 && age < backupInterval
+}
+
+func listBackups(dir, stem, ext string) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return fmt.Errorf("list backups: %w", err)
+		return nil, fmt.Errorf("list backups: %w", err)
 	}
 	var names []string
 	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), stem) && strings.HasSuffix(entry.Name(), ".csv") {
+		if strings.HasPrefix(entry.Name(), stem) && strings.HasSuffix(entry.Name(), ext) {
 			names = append(names, entry.Name())
 		}
 	}
 	slices.Sort(names)
+	return names, nil
+}
 
+func pruneBackups(dir string, names []string) error {
 	for len(names) > backupsToKeep {
 		if err := os.Remove(filepath.Join(dir, names[0])); err != nil {
 			return fmt.Errorf("remove old backup: %w", err)

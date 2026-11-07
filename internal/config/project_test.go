@@ -26,7 +26,7 @@ func TestSlug(t *testing.T) {
 
 func TestCreateProjectRoundTrip(t *testing.T) {
 	folders := Folders{Config: t.TempDir(), Data: t.TempDir()}
-	in := domain.Project{Name: " Household ", Currency: "usd ", Decimals: 2, Categories: []string{"groceries", "rent"}}
+	in := domain.Project{Name: " Household ", Currency: "usd ", Decimals: 2, Categories: []domain.Category{{Name: "groceries"}, {Name: "rent", Color: "#112233"}}}
 
 	slug, err := CreateProject(folders, in)
 	if err != nil || slug != "household" {
@@ -34,13 +34,13 @@ func TestCreateProjectRoundTrip(t *testing.T) {
 	}
 
 	got, err := LoadProject(folders.ProjectFile(slug))
-	want := domain.Project{Name: "Household", Currency: "USD", Decimals: 2, Categories: []string{"groceries", "rent"}}
+	want := defaultSettings(domain.Project{Name: "Household", Currency: "USD", Decimals: 2, Categories: []domain.Category{{Name: "groceries", Color: "#2a78d6"}, {Name: "rent", Color: "#112233"}}})
 	if err != nil || !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %+v, %v; want %+v", got, err, want)
 	}
 
 	charts, err := LoadDashboard(filepath.Join(folders.ProjectDir(slug), "dashboard.toml"))
-	if err != nil || len(charts) != 3 || charts[0].Type != domain.ChartMonthlyTotals {
+	if err != nil || len(charts) != 9 || charts[0].Type != domain.ChartMonthlyTotals {
 		t.Fatalf("charts = %+v, err = %v", charts, err)
 	}
 }

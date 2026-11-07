@@ -69,3 +69,22 @@ func isDigits(s string) bool {
 	}
 	return true
 }
+
+// DivideRounded divides by n, rounding half away from zero.
+func (m Money) DivideRounded(n int64) Money {
+	if n <= 0 {
+		return 0
+	}
+	quotient, remainder := int64(m)/n, int64(m)%n
+	if remainder < 0 {
+		remainder = -remainder
+	}
+	if remainder*2 >= n {
+		if m < 0 {
+			quotient--
+		} else {
+			quotient++
+		}
+	}
+	return Money(quotient)
+}

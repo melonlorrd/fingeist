@@ -1,5 +1,22 @@
 schema_version = 1
 name = "Household"
-currency = "USD"
+currency = "INR"
 decimals = 2
-categories = ["groceries", "transport", "dining", "utilities", "rent", "salary"]
+categories = ["groceries", "transport", "dining", "utilities", "rent", "salary", "gifts"]
+archived_categories = ["gifts"]
+small_purchase_thresholds = ["100", "250", "500", "1000"]
+workdays = ["mon", "tue", "wed", "thu", "fri"]
+
+[category_colors]
+groceries = "#1baf7a"
+transport = "#2a78d6"
+dining = "#eb6834"
+utilities = "#eda100"
+rent = "#6250d6"
+salary = "#008300"
+gifts = "#e87ba4"
+
+[target_allocation]
+equity = 30
+gold = 20
+mutual_fund = 50

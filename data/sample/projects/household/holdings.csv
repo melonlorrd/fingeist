@@ -1,0 +1,4 @@
+id,class,name,ticker,units,avg_buy_price,current_price,price_as_of,price_source,notes
+01JC8Z4X9K2M3N4P5Q6R7SH001,mutual_fund,Franklin India Banking & PSU Debt Fund - Direct Growth,129008,684.797,22.4100,24.1800,2026-10-30T00:00:00+05:30,amfi,Sample quantities; real AMFI scheme code
+01JC8Z4X9K2M3N4P5Q6R7SH002,equity,Reliance Industries,RELIANCE.NS,40,1250.50,1298.00,2026-11-02T15:30:00+05:30,yahoo,Sample quantities; real Yahoo symbol
+01JC8Z4X9K2M3N4P5Q6R7SH003,gold,Gold coins,,25.5,6100,7250.40,2026-11-01T10:00:00+05:30,manual,Bank locker

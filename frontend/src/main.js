@@ -1,109 +1,175 @@
 import './style.css';
 
-import {
-    AddTransaction, CheckForChanges, CreateProject, DeleteTransaction, RetrySave, State, UpdateTransaction,
-} from '../wailsjs/go/main/App';
+import {Bootstrap, CheckForChanges, CreateProject, RetrySave} from '../wailsjs/go/main/App';
+import {EventsOn} from '../wailsjs/runtime/runtime';
 
-import {renderCharts} from './charts.js';
-import {el} from './dom.js';
+import * as categories from './categories.js';
+import * as dashboard from './dashboard.js';
+import {el, fill} from './dom.js';
+import * as ledger from './ledger.js';
+import * as portfolio from './portfolio.js';
+import * as settings from './settings.js';
 import {renderSetup} from './setup.js';
-import {renderTransactions} from './transactions.js';
 
-const app = document.getElementById('app');
+const views = {
+    dashboard: {label: 'Dashboard', render: dashboard.render},
+    ledger: {label: 'Ledger', render: ledger.render},
+    portfolio: {label: 'Portfolio', render: portfolio.render},
+    categories: {label: 'Categories', render: categories.render},
+    settings: {label: 'Settings', render: settings.render},
+};
 
-const fromInput = el('input', {type: 'date', onchange: refresh});
-const toInput = el('input', {type: 'date', onchange: refresh});
-const title = el('h1', {}, 'El Costas');
-const rangeBar = el('div', {className: 'range'},
-    el('label', {}, 'From ', fromInput),
-    el('label', {}, 'To ', toInput),
-    el('button', {onclick: () => { fromInput.value = ''; toInput.value = ''; refresh(); }}, 'All time'),
-);
+const NOTICE_WITH_ACTION_MS = 8000;
+
+let boot = null;
+let activeTab = 'dashboard';
+let renderedTab = null;
+let renderToken = 0;
+let lastSaveError = '';
+let noticeTimer;
+
+const title = el('span', {className: 'brand'}, 'El Costas');
+const nav = el('nav', {className: 'pills', 'aria-label': 'Sections'});
 const notice = el('div', {className: 'notice', role: 'status', hidden: true});
-const problems = el('section', {className: 'notice error', hidden: true});
-const chartsSection = el('section', {className: 'charts'});
-const transactionsSection = el('section', {className: 'transactions'});
-const setupSection = el('section', {hidden: true});
-
-app.append(
-    el('header', {}, title, rangeBar),
-    notice, problems, setupSection, chartsSection, transactionsSection,
+const banner = el('div', {});
+const view = el('main', {});
+document.getElementById('app').append(
+    el('div', {className: 'topbar'}, el('div', {className: 'topbar-inner'}, title, nav)),
+    el('div', {className: 'page'}, notice, banner, view),
 );
 
-function showNotice(text, isError = false) {
-    notice.textContent = text;
+const ctx = {
+    get boot() { return boot; },
+    perform,
+    notify: showNotice,
+    rerender: renderView,
+    refresh,
+};
+
+// An optional action ({label, run}) adds a button and makes the notice disappear after a few seconds.
+function showNotice(text, isError = false, action = null) {
+    clearTimeout(noticeTimer);
+    fill(notice, text, action ? el('button', {onclick: () => { showNotice(''); action.run(); }}, action.label) : null);
     notice.classList.toggle('error', isError);
     notice.hidden = !text;
+    if (action) {
+        noticeTimer = setTimeout(() => showNotice(''), NOTICE_WITH_ACTION_MS);
+    }
 }
 
 function errorText(err) {
     return String(err?.message ?? err);
 }
 
-let lastSaveError = '';
-
-async function failed(err) {
-    lastSaveError = errorText(err);
-    const state = await refresh();
-    if (!state?.unsaved) {
-        showNotice(lastSaveError, true);
+// Runs a change, then redraws. Returns an error message to show next to the form, or '' when it worked
+// or when the change is kept in memory pending a retry (the banner explains that).
+async function perform(change) {
+    showNotice('');
+    try {
+        await change();
+    } catch (err) {
+        lastSaveError = errorText(err);
+        const fresh = await refresh();
+        return fresh && (fresh.unsaved || fresh.holdingsUnsaved) ? '' : lastSaveError;
     }
-    return state;
+    await refresh();
+    return '';
 }
 
 async function refresh() {
-    let state;
     try {
-        state = await State(fromInput.value, toInput.value);
+        boot = await Bootstrap();
     } catch (err) {
         showNotice(errorText(err), true);
         return null;
     }
-    render(state);
-    return state;
-}
-
-function render(state) {
-    const ready = !state.needsSetup;
-    rangeBar.hidden = !ready;
-    setupSection.hidden = ready;
-    chartsSection.hidden = !ready;
-    transactionsSection.hidden = !ready;
-    if (!ready) {
-        renderSetup(setupSection, createProject);
-        return;
+    renderChrome();
+    if (boot.needsSetup) {
+        dashboard.disposeCharts();
+        renderSetup(view, createProject);
+    } else {
+        await renderView();
     }
-
-    title.textContent = state.projectName;
-    renderMalformedRows(state.problems ?? []);
-    renderUnsaved(state.unsaved);
-    renderCharts(chartsSection, state.charts);
-    renderTransactions(transactionsSection, state, {onSave: saveTransaction, onDelete: deleteTransaction});
+    return boot;
 }
 
-function renderMalformedRows(list) {
-    problems.hidden = list.length === 0;
-    problems.replaceChildren(...(list.length === 0 ? [] : [
-        el('strong', {}, 'Some rows in transactions.csv cannot be read. Fix them in the file; editing is disabled until then.'),
-        el('ul', {}, list.map((p) => el('li', {}, `Line ${p.line}: ${p.message}`))),
-    ]));
-}
+function renderChrome() {
+    title.textContent = boot.needsSetup ? 'El Costas' : boot.projectName;
+    nav.hidden = boot.needsSetup;
+    nav.replaceChildren(...(boot.needsSetup ? [] : Object.entries(views).map(([key, v]) => el('button', {
+        className: key === activeTab ? 'active' : '',
+        'aria-current': key === activeTab ? 'page' : 'false',
+        onclick: () => showTab(key),
+    }, v.label))));
 
-function renderUnsaved(unsaved) {
-    if (!unsaved) {
-        return;
-    }
-    notice.replaceChildren(
-        `Could not write transactions.csv (${lastSaveError}). Your changes are kept in the app. Close any program that has the file open, then `,
-        el('button', {onclick: retrySave}, 'try again'),
+    const problems = [
+        ...(boot.problems ?? []).map((p) => `transactions.csv, line ${p.line}: ${p.message}`),
+        ...(boot.holdingProblems ?? []).map((p) => `holdings.csv, line ${p.line}: ${p.message}`),
+    ];
+    fill(banner,
+        problems.length === 0 ? null : el('section', {className: 'notice error'},
+            el('strong', {}, 'Some rows cannot be read. Fix them in the file; editing is disabled until then.'),
+            el('ul', {}, problems.map((text) => el('li', {}, text)))),
+        boot.unsaved || boot.holdingsUnsaved ? el('section', {className: 'notice error'},
+            `Could not write the file (${lastSaveError}). Your changes are kept in the app. Close any program that has the file open, then `,
+            el('button', {onclick: retrySave}, 'try again')) : null,
     );
-    notice.classList.add('error');
-    notice.hidden = false;
 }
 
-async function createProject(name, currency, decimals, categories) {
+async function showTab(name) {
+    if (activeTab === name) {
+        return;
+    }
+    activeTab = name;
+    renderChrome();
+    await renderView();
+}
+
+// Draws into a detached element first, so a slow view cannot overwrite a newer one. Redrawing the
+// same tab keeps the scroll position and the focused field.
+async function renderView() {
+    const token = ++renderToken;
+    const restore = renderedTab === activeTab ? rememberPosition() : null;
+    dashboard.disposeCharts();
+    const container = el('div', {});
     try {
-        await CreateProject(name, currency, decimals, categories);
+        await views[activeTab].render(container, ctx);
+    } catch (err) {
+        showNotice(errorText(err), true);
+        return;
+    }
+    if (token === renderToken) {
+        view.replaceChildren(container);
+        renderedTab = activeTab;
+        if (restore) {
+            restore();
+        } else {
+            window.scrollTo(0, 0);
+        }
+    }
+}
+
+function rememberPosition() {
+    const scrollY = window.scrollY;
+    const active = document.activeElement;
+    const tag = active?.tagName;
+    const key = active && view.contains(active) ? (active.getAttribute('aria-label') || active.name) : null;
+    const selection = typeof active?.selectionStart === 'number' ? [active.selectionStart, active.selectionEnd] : null;
+    return () => {
+        window.scrollTo(0, scrollY);
+        const target = key && [...view.querySelectorAll(tag)].find((node) => (node.getAttribute('aria-label') || node.name) === key);
+        if (target) {
+            target.focus();
+            if (selection) {
+                target.setSelectionRange(...selection);
+            }
+        }
+    };
+}
+
+async function createProject(name, currency, decimals, categoryNames) {
+    try {
+        await CreateProject(name, currency, decimals, categoryNames);
     } catch (err) {
         return errorText(err);
     }
@@ -111,41 +177,11 @@ async function createProject(name, currency, decimals, categories) {
     return '';
 }
 
-async function saveTransaction(fields, isNew) {
-    showNotice('');
-    try {
-        await (isNew ? AddTransaction(fields) : UpdateTransaction(fields));
-    } catch (err) {
-        const state = await failed(err);
-        return state?.unsaved ? '' : errorText(err);
-    }
-    await refresh();
-    return '';
-}
-
-async function deleteTransaction(row) {
-    if (!confirm(`Delete the ${row.merchant || 'transaction'} on ${row.time.slice(0, 10)} (${row.amount})?`)) {
-        return;
-    }
-    showNotice('');
-    try {
-        await DeleteTransaction(row.id);
-    } catch (err) {
-        await failed(err);
-        return;
-    }
-    await refresh();
-}
-
 async function retrySave() {
-    showNotice('');
-    try {
-        await RetrySave();
-    } catch (err) {
-        await failed(err);
-        return;
+    const error = await perform(RetrySave);
+    if (error) {
+        showNotice(error, true);
     }
-    await refresh();
 }
 
 async function checkForChanges() {
@@ -158,9 +194,58 @@ async function checkForChanges() {
     }
     if (changed) {
         await refresh();
-        showNotice('transactions.csv was changed outside the app, so it was reloaded.');
+        showNotice('A file was changed outside the app, so it was reloaded.');
     }
 }
+
+function dialogOpen() {
+    return document.getElementById('dialog').hasAttribute('open');
+}
+
+function canUseShortcuts() {
+    return boot && !boot.needsSetup && !dialogOpen();
+}
+
+async function newTransaction() {
+    if (canUseShortcuts()) {
+        await showTab('ledger');
+        ledger.openTransactionForm(ctx, null);
+    }
+}
+
+async function focusSearch() {
+    if (canUseShortcuts()) {
+        await showTab('ledger');
+        document.querySelector('input[type=search]')?.focus();
+    }
+}
+
+function isTextEntry(node) {
+    return node instanceof HTMLElement && (node.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(node.tagName));
+}
+
+window.addEventListener('keydown', (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'n') {
+        event.preventDefault();
+        newTransaction();
+    } else if (event.key === '/' && !isTextEntry(event.target)) {
+        event.preventDefault();
+        focusSearch();
+    }
+});
+
+try {
+    EventsOn('new-transaction', newTransaction);
+} catch {
+    // Outside Wails (a plain browser) there is no native menu to listen to.
+}
+
+// Charts read their colours when drawn, so draw again when the system switches between light and dark.
+window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
+    if (boot && !boot.needsSetup) {
+        renderView();
+    }
+});
 
 window.addEventListener('focus', checkForChanges);
 refresh();

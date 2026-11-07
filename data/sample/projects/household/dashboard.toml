@@ -9,3 +9,27 @@ type = "by_category"
 [[charts]]
 title = "Daily spending"
 type = "calendar_heatmap"
+
+[[charts]]
+title = "Running balance"
+type = "running_balance"
+
+[[charts]]
+title = "Spending by intent"
+type = "intent_trends"
+
+[[charts]]
+title = "Small purchases"
+type = "small_purchases"
+
+[[charts]]
+title = "Workday routine"
+type = "workday_routine"
+
+[[charts]]
+title = "Weekday and hour"
+type = "weekday_hour_heatmap"
+
+[[charts]]
+title = "No-spend days"
+type = "no_spend_calendar"

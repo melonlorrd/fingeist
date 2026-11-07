@@ -3,77 +3,151 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/url"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
+
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"el-costas/internal/config"
 	"el-costas/internal/domain"
+	"el-costas/internal/portfolio"
+	"el-costas/internal/prices"
 	"el-costas/internal/report"
 	"el-costas/internal/storage"
 )
 
-const nowLayout = "2006-01-02 15:04"
+const (
+	nowLayout          = "2006-01-02 15:04"
+	priceUpdateTimeout = time.Minute
+)
 
 var errNoProject = errors.New("no project is open")
 
 // App is bound to the frontend; each method is a thin wrapper over the internal packages.
 type App struct {
-	folders   config.Folders
-	project   domain.Project
-	dashboard []domain.ChartDef
-	ledger    *storage.Ledger
-	startErr  error
+	ctx      context.Context
+	folders  config.Folders
+	sources  prices.Sources
+	startErr error
+
+	project     domain.Project
+	projectPath string
+	projectHash string
+	dashboard   []domain.ChartDef
+	ledger      *storage.Ledger
+	holdings    *storage.HoldingStore
 }
 
-// State is everything the frontend draws, for one date range.
-type State struct {
-	NeedsSetup  bool              `json:"needsSetup"`
-	ProjectName string            `json:"projectName"`
-	Currency    string            `json:"currency"`
-	Categories  []string          `json:"categories"`
-	Now         string            `json:"now"`
-	Rows        []storage.Fields  `json:"rows"`
-	Charts      []report.Chart    `json:"charts"`
-	Problems    []storage.Problem `json:"problems"`
-	Unsaved     bool              `json:"unsaved"`
+type CategoryView struct {
+	Name     string `json:"name"`
+	Color    string `json:"color"`
+	Archived bool   `json:"archived"`
+}
+
+// Boot is the project's header data: what the frontend needs on every screen.
+type Boot struct {
+	NeedsSetup      bool              `json:"needsSetup"`
+	ProjectName     string            `json:"projectName"`
+	Currency        string            `json:"currency"`
+	Categories      []CategoryView    `json:"categories"`
+	Settings        config.Settings   `json:"settings"`
+	Now             string            `json:"now"`
+	Today           string            `json:"today"`
+	Problems        []storage.Problem `json:"problems"`
+	Unsaved         bool              `json:"unsaved"`
+	HoldingProblems []storage.Problem `json:"holdingProblems"`
+	HoldingsUnsaved bool              `json:"holdingsUnsaved"`
+}
+
+type DashboardData struct {
+	Summary report.Summary `json:"summary"`
+	Charts  []report.Chart `json:"charts"`
+}
+
+type Range struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+type PriceUpdate struct {
+	Updated  int              `json:"updated"`
+	Failures []prices.Failure `json:"failures"`
 }
 
 func NewApp() *App {
-	return &App{}
+	return &App{sources: prices.DefaultSources()}
 }
 
-func (a *App) startup(_ context.Context) {
+func (a *App) startup(ctx context.Context) {
+	a.ctx = ctx
 	a.startErr = a.openProject()
 }
 
-// State returns the project's rows and charts for transactions dated from..to (inclusive, either may be empty).
-func (a *App) State(from, to string) (State, error) {
+func (a *App) Bootstrap() (Boot, error) {
 	if a.startErr != nil {
-		return State{}, a.startErr
+		return Boot{}, a.startErr
 	}
 	if a.ledger == nil {
-		return State{NeedsSetup: true}, nil
+		return Boot{NeedsSetup: true}, nil
 	}
 
-	txns, err := report.FilterRange(a.ledger.Transactions(), from, to)
-	if err != nil {
-		return State{}, err
+	categories := make([]CategoryView, len(a.project.Categories))
+	for i, c := range a.project.Categories {
+		categories[i] = CategoryView{Name: c.Name, Color: c.Color, Archived: c.Archived}
 	}
-	charts := make([]report.Chart, len(a.dashboard))
-	for i, def := range a.dashboard {
-		charts[i] = report.Run(def, txns, a.project)
-	}
-	return State{
-		ProjectName: a.project.Name,
-		Currency:    a.project.Currency,
-		Categories:  a.project.Categories,
-		Now:         time.Now().Format(nowLayout),
-		Rows:        storage.Rows(txns, a.project.Decimals),
-		Charts:      charts,
-		Problems:    a.ledger.Problems(),
-		Unsaved:     a.ledger.Unsaved(),
+	return Boot{
+		ProjectName:     a.project.Name,
+		Currency:        a.project.Currency,
+		Categories:      categories,
+		Settings:        config.SettingsOf(a.project),
+		Now:             time.Now().Format(nowLayout),
+		Today:           today(),
+		Problems:        a.ledger.Problems(),
+		Unsaved:         a.ledger.Unsaved(),
+		HoldingProblems: a.holdings.Problems(),
+		HoldingsUnsaved: a.holdings.Unsaved(),
 	}, nil
+}
+
+// PresetRange resolves a named range such as this_month or all_time to dates.
+func (a *App) PresetRange(name string) (Range, error) {
+	from, to, err := report.PresetRange(name, today())
+	return Range{From: from, To: to}, err
+}
+
+// Dashboard returns the summary cards and charts for transactions dated from..to (inclusive, either may be empty).
+func (a *App) Dashboard(from, to string) (DashboardData, error) {
+	if a.ledger == nil {
+		return DashboardData{}, errNoProject
+	}
+	scope := report.Scope{From: from, To: to, Today: today()}
+	if err := scope.Validate(); err != nil {
+		return DashboardData{}, err
+	}
+
+	txns := a.ledger.Transactions()
+	return DashboardData{
+		Summary: report.Summarize(txns, a.project, scope),
+		Charts:  report.RunAll(a.dashboard, txns, a.project, scope),
+	}, nil
+}
+
+func (a *App) Ledger(query report.LedgerQuery) (report.LedgerData, error) {
+	if a.ledger == nil {
+		return report.LedgerData{}, errNoProject
+	}
+	return report.LedgerView(a.ledger.Transactions(), a.project, query), nil
+}
+
+func (a *App) Portfolio() (portfolio.View, error) {
+	if a.ledger == nil {
+		return portfolio.View{}, errNoProject
+	}
+	return portfolio.Build(a.holdings.Holdings(), a.project, a.ledger.Balance(), time.Now())
 }
 
 // CreateProject sets up the first project.
@@ -84,13 +158,52 @@ func (a *App) CreateProject(name, currency string, decimals int, categories []st
 	if a.ledger != nil {
 		return errors.New("a project is already open")
 	}
-	slug, err := config.CreateProject(a.folders, domain.Project{
-		Name: name, Currency: currency, Decimals: decimals, Categories: categories,
-	})
+	project := domain.Project{Name: name, Currency: currency, Decimals: decimals}
+	for _, category := range categories {
+		project.Categories = append(project.Categories, domain.Category{Name: strings.TrimSpace(category)})
+	}
+	slug, err := config.CreateProject(a.folders, project)
 	if err != nil {
 		return err
 	}
 	return a.loadProject(slug)
+}
+
+func (a *App) SaveSettings(settings config.Settings) error {
+	if a.ledger == nil {
+		return errNoProject
+	}
+	project, err := config.ApplySettings(a.project, settings)
+	if err != nil {
+		return err
+	}
+	return a.saveProject(project)
+}
+
+// SaveCategory adds a category or changes its colour. The name is what transactions refer to, so it stays fixed.
+func (a *App) SaveCategory(name, color string) error {
+	if a.ledger == nil {
+		return errNoProject
+	}
+	return a.saveProject(a.project.WithCategory(strings.TrimSpace(name), color))
+}
+
+func (a *App) SetCategoryArchived(name string, archived bool) error {
+	if a.ledger == nil {
+		return errNoProject
+	}
+	project, found := a.project.WithArchived(name, archived)
+	if !found {
+		return fmt.Errorf("category %q not found", name)
+	}
+	return a.saveProject(project)
+}
+
+func (a *App) GetTransaction(id string) (storage.Fields, error) {
+	if a.ledger == nil {
+		return storage.Fields{}, errNoProject
+	}
+	return a.ledger.Get(id)
 }
 
 func (a *App) AddTransaction(f storage.Fields) error {
@@ -115,20 +228,85 @@ func (a *App) DeleteTransaction(id string) error {
 	return a.ledger.Delete(id)
 }
 
+func (a *App) GetHolding(id string) (storage.HoldingFields, error) {
+	if a.holdings == nil {
+		return storage.HoldingFields{}, errNoProject
+	}
+	return a.holdings.Get(id)
+}
+
+func (a *App) AddHolding(f storage.HoldingFields) error {
+	if a.holdings == nil {
+		return errNoProject
+	}
+	return a.holdings.Add(f)
+}
+
+func (a *App) UpdateHolding(f storage.HoldingFields) error {
+	if a.holdings == nil {
+		return errNoProject
+	}
+	return a.holdings.Update(f)
+}
+
+func (a *App) DeleteHolding(id string) error {
+	if a.holdings == nil {
+		return errNoProject
+	}
+	return a.holdings.Delete(id)
+}
+
+// UpdatePrices fetches current prices. Holdings that fail keep their last price and are listed.
+func (a *App) UpdatePrices() (PriceUpdate, error) {
+	if a.holdings == nil {
+		return PriceUpdate{}, errNoProject
+	}
+	ctx, cancel := context.WithTimeout(a.ctx, priceUpdateTimeout)
+	defer cancel()
+
+	quotes, failures := prices.Fetch(ctx, a.sources, a.holdings.Holdings(), time.Now())
+	if len(quotes) > 0 {
+		if err := a.holdings.ApplyQuotes(quotes); err != nil {
+			return PriceUpdate{}, err
+		}
+	}
+	return PriceUpdate{Updated: len(quotes), Failures: failures}, nil
+}
+
+// OpenProjectFolder shows the project's files in the system file manager.
+func (a *App) OpenProjectFolder() error {
+	if a.ledger == nil {
+		return errNoProject
+	}
+	wailsruntime.BrowserOpenURL(a.ctx, folderURL(filepath.Dir(a.projectPath)))
+	return nil
+}
+
 // RetrySave writes changes that could not be saved earlier.
 func (a *App) RetrySave() error {
 	if a.ledger == nil {
 		return errNoProject
 	}
-	return a.ledger.Save()
+	if err := a.ledger.Save(); err != nil {
+		return err
+	}
+	return a.holdings.Save()
 }
 
-// CheckForChanges reloads the file if it was edited outside the app and reports whether it did.
+// CheckForChanges reloads files that were edited outside the app and reports whether any were.
 func (a *App) CheckForChanges() (bool, error) {
 	if a.ledger == nil {
 		return false, nil
 	}
-	return a.ledger.CheckExternalChange()
+	changed := false
+	for _, check := range []func() (bool, error){a.ledger.CheckExternalChange, a.holdings.CheckExternalChange, a.reloadProjectIfChanged} {
+		reloaded, err := check()
+		if err != nil {
+			return changed, err
+		}
+		changed = changed || reloaded
+	}
+	return changed, nil
 }
 
 func (a *App) openProject() error {
@@ -147,7 +325,12 @@ func (a *App) openProject() error {
 
 func (a *App) loadProject(slug string) error {
 	dir := a.folders.ProjectDir(slug)
-	project, err := config.LoadProject(a.folders.ProjectFile(slug))
+	projectPath := a.folders.ProjectFile(slug)
+	hash, err := storage.FileHash(projectPath)
+	if err != nil {
+		return err
+	}
+	project, err := config.LoadProject(projectPath)
 	if err != nil {
 		return err
 	}
@@ -159,6 +342,55 @@ func (a *App) loadProject(slug string) error {
 	if err != nil {
 		return err
 	}
-	a.project, a.dashboard, a.ledger = project, dashboard, ledger
+	holdings, err := storage.OpenHoldings(filepath.Join(dir, "holdings.csv"))
+	if err != nil {
+		return err
+	}
+	a.project, a.projectPath, a.projectHash = project, projectPath, hash
+	a.dashboard, a.ledger, a.holdings = dashboard, ledger, holdings
 	return nil
+}
+
+func (a *App) saveProject(project domain.Project) error {
+	data, err := config.EncodeProject(project)
+	if err != nil {
+		return err
+	}
+	hash, err := storage.SaveFile(a.projectPath, data, a.projectHash, time.Now())
+	if errors.Is(err, storage.ErrExternalChange) {
+		if _, reloadErr := a.reloadProjectIfChanged(); reloadErr != nil {
+			return reloadErr
+		}
+		return fmt.Errorf("%w; project.toml was reloaded and your change was not saved", err)
+	}
+	if err != nil {
+		return err
+	}
+	a.project, a.projectHash = project, hash
+	return nil
+}
+
+func (a *App) reloadProjectIfChanged() (bool, error) {
+	hash, err := storage.FileHash(a.projectPath)
+	if err != nil || hash == a.projectHash {
+		return false, err
+	}
+	project, err := config.LoadProject(a.projectPath)
+	if err != nil {
+		return false, err
+	}
+	a.project, a.projectHash = project, hash
+	return true, nil
+}
+
+func today() string {
+	return time.Now().Format(domain.DateLayout)
+}
+
+func folderURL(dir string) string {
+	path := filepath.ToSlash(dir)
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return (&url.URL{Scheme: "file", Path: path}).String()
 }

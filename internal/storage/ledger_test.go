@@ -28,7 +28,7 @@ func TestLedgerAddUpdateDelete(t *testing.T) {
 	if added.ID == "" || added.ID == "ignored" || added.Amount != "-5.00" || added.Tags != "a;b" {
 		t.Fatalf("added = %+v", added)
 	}
-	if !strings.Contains(readFile(t, path), added.ID+",2026-01-02T00:00:00Z,-5.00,food,,,a;b\n") {
+	if !strings.Contains(readFile(t, path), added.ID+",2026-01-02,-5.00,food,,,a;b,\n") {
 		t.Fatalf("file = %q", readFile(t, path))
 	}
 
@@ -44,7 +44,7 @@ func TestLedgerAddUpdateDelete(t *testing.T) {
 	if err := l.Delete(added.ID); err != nil {
 		t.Fatal(err)
 	}
-	if len(l.Rows()) != 0 || readFile(t, path) != csvHeader {
+	if len(l.Rows()) != 0 || readFile(t, path) != csvHeaderV2 {
 		t.Fatalf("rows = %v, file = %q", l.Rows(), readFile(t, path))
 	}
 }
@@ -189,5 +189,40 @@ func TestLedgerRowsNewestFirst(t *testing.T) {
 	}
 	if strings.Join(ids, "") != "cba" {
 		t.Fatalf("order = %v", ids)
+	}
+}
+
+func TestLedgerCheckExternalChangeIgnoresTouchOnly(t *testing.T) {
+	l, path := openTestLedger(t, csvHeader+"a,2026-01-02,-1.50,,,,\n")
+	later := time.Now().Add(time.Hour)
+	if err := os.Chtimes(path, later, later); err != nil {
+		t.Fatal(err)
+	}
+
+	changed, err := l.CheckExternalChange()
+	if err != nil || changed {
+		t.Fatalf("a touched file with the same content is not a change: changed = %v, err = %v", changed, err)
+	}
+	if changed, _ := l.CheckExternalChange(); changed {
+		t.Fatal("the new timestamp should have been remembered")
+	}
+}
+
+func TestLedgerCheckExternalChangeNoticesDeletionAndCreation(t *testing.T) {
+	l, path := openTestLedger(t, csvHeader+"a,2026-01-02,-1.50,,,,\n")
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if changed, err := l.CheckExternalChange(); err != nil || !changed || len(l.Rows()) != 0 {
+		t.Fatalf("deleted file: changed = %v, err = %v, rows = %d", changed, err, len(l.Rows()))
+	}
+	if changed, _ := l.CheckExternalChange(); changed {
+		t.Fatal("still missing, nothing new")
+	}
+	if err := os.WriteFile(path, []byte(csvHeader+"b,2026-01-03,-2.00,,,,\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if changed, err := l.CheckExternalChange(); err != nil || !changed || len(l.Rows()) != 1 {
+		t.Fatalf("recreated file: changed = %v, err = %v, rows = %d", changed, err, len(l.Rows()))
 	}
 }

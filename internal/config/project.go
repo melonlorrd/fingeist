@@ -10,15 +10,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/BurntSushi/toml"
-
 	"el-costas/internal/domain"
 )
 
-const (
-	projectSchemaVersion = 1
-	projectFileName      = "project.toml"
-)
+const projectFileName = "project.toml"
 
 const defaultDashboard = `[[charts]]
 title = "Monthly totals"
@@ -31,6 +26,30 @@ type = "by_category"
 [[charts]]
 title = "Daily spending"
 type = "calendar_heatmap"
+
+[[charts]]
+title = "Running balance"
+type = "running_balance"
+
+[[charts]]
+title = "Spending by intent"
+type = "intent_trends"
+
+[[charts]]
+title = "Small purchases"
+type = "small_purchases"
+
+[[charts]]
+title = "Workday routine"
+type = "workday_routine"
+
+[[charts]]
+title = "Weekday and hour"
+type = "weekday_hour_heatmap"
+
+[[charts]]
+title = "No-spend days"
+type = "no_spend_calendar"
 `
 
 var nonSlugChars = regexp.MustCompile(`[^a-z0-9]+`)
@@ -81,8 +100,7 @@ func ChooseProject(f Folders) (slug string, found bool, err error) {
 
 // CreateProject writes project.toml and a default dashboard.toml for a new project and returns its slug.
 func CreateProject(f Folders, p domain.Project) (string, error) {
-	p.Name = strings.TrimSpace(p.Name)
-	p.Currency = strings.ToUpper(strings.TrimSpace(p.Currency))
+	p = withDefaults(p)
 	if err := validateProject(p); err != nil {
 		return "", err
 	}
@@ -93,24 +111,39 @@ func CreateProject(f Folders, p domain.Project) (string, error) {
 		return "", fmt.Errorf("create project folder: %w", err)
 	}
 
-	var content strings.Builder
-	err := toml.NewEncoder(&content).Encode(projectFile{
-		SchemaVersion: projectSchemaVersion,
-		Name:          p.Name,
-		Currency:      p.Currency,
-		Decimals:      &p.Decimals,
-		Categories:    p.Categories,
-	})
+	content, err := EncodeProject(p)
 	if err != nil {
-		return "", fmt.Errorf("encode project: %w", err)
+		return "", err
 	}
-	if err := writeNew(filepath.Join(dir, projectFileName), content.String()); err != nil {
+	if err := writeNew(filepath.Join(dir, projectFileName), string(content)); err != nil {
 		return "", err
 	}
 	if err := writeNew(filepath.Join(dir, "dashboard.toml"), defaultDashboard); err != nil {
 		return "", err
 	}
 	return slug, nil
+}
+
+func withDefaults(p domain.Project) domain.Project {
+	p.Name = strings.TrimSpace(p.Name)
+	p.Currency = strings.ToUpper(strings.TrimSpace(p.Currency))
+	for i := range p.Categories {
+		if p.Categories[i].Color == "" {
+			p.Categories[i].Color = defaultCategoryColors[i%len(defaultCategoryColors)]
+		}
+	}
+	if len(p.SmallPurchaseThresholds) == 0 {
+		for _, text := range defaultThresholds {
+			amount, err := domain.ParseMoney(text, p.Decimals)
+			if err == nil {
+				p.SmallPurchaseThresholds = append(p.SmallPurchaseThresholds, amount)
+			}
+		}
+	}
+	if len(p.Workdays) == 0 {
+		p.Workdays = defaultWorkdays
+	}
+	return p
 }
 
 func writeNew(path, content string) error {

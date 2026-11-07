@@ -15,6 +15,8 @@ import (
 
 const csvHeader = "id,time,amount,category,merchant,note,tags\n"
 
+const csvHeaderV2 = "id,time,amount,category,merchant,note,tags,intent\n"
+
 func writeCSV(t *testing.T, content string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "transactions.csv")
@@ -185,7 +187,7 @@ func TestParseTime(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseTime(tt.in, tt.loc)
+			got, unknown, err := parseTime(tt.in, tt.loc)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatalf("parseTime(%q) succeeded, want an error", tt.in)
@@ -194,6 +196,9 @@ func TestParseTime(t *testing.T) {
 			}
 			if err != nil {
 				t.Fatal(err)
+			}
+			if wantUnknown := !strings.ContainsAny(tt.in, ":"); unknown != wantUnknown {
+				t.Errorf("unknown = %v, want %v", unknown, wantUnknown)
 			}
 			if date := got.Format("2006-01-02"); date != tt.wantDate {
 				t.Errorf("wall-clock date = %s, want %s", date, tt.wantDate)
@@ -211,7 +216,7 @@ func TestEncodeAndLoadRoundTrip(t *testing.T) {
 		{ID: "a", Time: time.Date(2026, 11, 7, 14, 30, 0, 0, zone), Amount: -12000, Category: "groceries", Merchant: "Smith, J", Note: "two\nlines \"quoted\"", Tags: []string{"food", "weekly"}},
 		{ID: "b", Time: time.Date(2026, 11, 8, 0, 0, 0, 0, time.UTC), Amount: 250000},
 	}
-	data, err := encode(txns, 2)
+	data, err := encodeTable(txns, transactionFormat(2, time.UTC))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,5 +241,73 @@ func TestEncodeAndLoadRoundTrip(t *testing.T) {
 		if _, offset := got.Time.Zone(); i == 0 && offset != 5*3600+30*60 {
 			t.Errorf("offset not preserved: %d", offset)
 		}
+	}
+}
+
+func TestLoadMigratesV1ToV2(t *testing.T) {
+	path := writeCSV(t, csvHeader+"a,2026-01-02T10:00:00Z,-1.50,food,,,\n")
+	loaded, err := Load(path, 2, time.UTC)
+	if err != nil || len(loaded.Problems) != 0 || len(loaded.Transactions) != 1 {
+		t.Fatalf("got %+v, %v", loaded, err)
+	}
+	if loaded.Transactions[0].Intent != domain.IntentNone {
+		t.Fatalf("intent = %q, want none", loaded.Transactions[0].Intent)
+	}
+
+	hash, err := Save(path, loaded.Transactions, 2, loaded.Hash, time.Now())
+	if err != nil || hash == "" {
+		t.Fatal(err)
+	}
+	if got := readFile(t, path); got != csvHeaderV2+"a,2026-01-02T10:00:00Z,-1.50,food,,,,\n" {
+		t.Fatalf("file after save = %q", got)
+	}
+}
+
+func TestLoadIntent(t *testing.T) {
+	tests := []struct {
+		name         string
+		row          string
+		wantIntent   domain.Intent
+		wantProblems int
+	}{
+		{"need", "a,2026-01-02,-1.50,,,,,need", domain.IntentNeed, 0},
+		{"case and spaces", "a,2026-01-02,-1.50,,,,, Impulse ", domain.IntentImpulse, 0},
+		{"blank", "a,2026-01-02,-1.50,,,,,", domain.IntentNone, 0},
+		{"income drops intent", "a,2026-01-02,10.00,,,,,want", domain.IntentNone, 0},
+		{"unknown value", "a,2026-01-02,-1.50,,,,,hobby", "", 1},
+		{"v2 header needs 8 fields", "a,2026-01-02,-1.50,,,,", "", 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			loaded, err := Load(writeCSV(t, csvHeaderV2+tt.row+"\n"), 2, time.UTC)
+			if err != nil || len(loaded.Problems) != tt.wantProblems {
+				t.Fatalf("problems = %v, err = %v", loaded.Problems, err)
+			}
+			if tt.wantProblems == 0 && loaded.Transactions[0].Intent != tt.wantIntent {
+				t.Fatalf("intent = %q, want %q", loaded.Transactions[0].Intent, tt.wantIntent)
+			}
+		})
+	}
+}
+
+func TestDateOnlyRowsStayDateOnly(t *testing.T) {
+	path := writeCSV(t, csvHeaderV2+"a,2026-01-02,-1.50,,,,,\nb,2026-01-03 09:15,-2.00,,,,,\n")
+	loaded, err := Load(path, 2, mustLocation(t, "America/New_York"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !loaded.Transactions[0].TimeUnknown || loaded.Transactions[1].TimeUnknown {
+		t.Fatalf("unknown flags = %v, %v", loaded.Transactions[0].TimeUnknown, loaded.Transactions[1].TimeUnknown)
+	}
+
+	if _, err := Save(path, loaded.Transactions, 2, loaded.Hash, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	got := readFile(t, path)
+	if !strings.Contains(got, "a,2026-01-02,-1.50") {
+		t.Fatalf("a date-only row must stay a date, got %q", got)
+	}
+	if !strings.Contains(got, "b,2026-01-03T09:15:00-05:00,-2.00") {
+		t.Fatalf("a timed row must be written in full, got %q", got)
 	}
 }
