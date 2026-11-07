@@ -1,0 +1,12 @@
+# Dev scratch copy of sample data (see flake.nix shellHook)
+data/dev/
+
+# Wails / frontend build output
+build/bin/
+frontend/dist/
+frontend/node_modules/
+
+.direnv/
+.DS_Store
+
+.claude/
