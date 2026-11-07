@@ -1,0 +1,5 @@
+schema_version = 1
+name = "Household"
+currency = "USD"
+decimals = 2
+categories = ["groceries", "transport", "dining", "utilities", "rent", "salary"]

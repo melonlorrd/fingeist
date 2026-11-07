@@ -6,7 +6,7 @@ A personal, local-only expense tracker for the desktop: **macOS** (Apple Silicon
 - **Plain files.** Your data is CSV and TOML you can open in any text editor.
 - **Separate projects.** For example, one for household spending and one for a small business, each with its own currency, categories and dashboard.
 
-> **Status:** pre-MVP. The structure below is the plan; see the Scope table in [`AGENTS.md`](AGENTS.md) for what's in each phase.
+> **Status:** MVP: one project, add/edit/delete transactions, three chart types, a date-range filter. See the Scope table in [`AGENTS.md`](AGENTS.md) for what's in each phase.
 
 ---
 
@@ -39,9 +39,9 @@ A personal, local-only expense tracker for the desktop: **macOS** (Apple Silicon
 **How it works**
 
 1. At startup the app loads the selected project's files into memory.
-2. `report` turns the transactions plus each chart definition from `dashboard.toml` into plain data structs. It's pure Go with no I/O, so it's easy to test.
-3. The frontend receives those structs (amounts pre-formatted as strings) and only draws them.
-4. Each edit saves the whole CSV atomically, after taking a backup.
+2. `report.Run(chartDef, txns, project)` turns the transactions plus each chart definition from `dashboard.toml` into plain data structs. It's pure Go with no I/O, so it's easy to test.
+3. The frontend receives those structs and only draws them. Every amount arrives pre-formatted as text; the integer minor-unit value that comes with it is used only to size bars and cells, never for arithmetic.
+4. Each edit saves the whole CSV atomically, after taking a backup. If the file changed on disk since it was loaded, the app reloads it instead of saving.
 
 Dependencies point downward only: `app.go` → `report` / `storage` / `config` → `domain`.
 
@@ -52,7 +52,7 @@ main.go              Wails bootstrap
 app.go               Methods bound to the frontend
 internal/
   domain/            Core types. No I/O.
-  storage/           CSV read/write, atomic save, backups, migrations
+  storage/           CSV read/write, atomic save, backups, external-change detection, in-memory ledger
   report/            Aggregations for charts
   config/            Folder resolution and TOML loading
 frontend/
@@ -80,11 +80,11 @@ macOS and Windows keep config and data in the same app folder, which is the norm
 
 ```
 <config folder>/
-  app.toml                 Last-opened project, UI preferences
+  app.toml                 last_project = "<slug>" (optional)
 
 <data folder>/
   projects/<slug>/
-    project.toml           Name, currency, categories, schema_version
+    project.toml           Name, currency, decimals, categories, schema_version
     dashboard.toml         Chart definitions
     transactions.csv       Source of truth
     backups/               Automatic backups (newest 20)
@@ -105,7 +105,7 @@ id,time,amount,category,merchant,note,tags
 | Column | Format |
 |--------|--------|
 | `id` | ULID. Leave blank when adding a row by hand; the app fills it in. |
-| `time` | RFC 3339 with offset (`2026-11-07T14:30:00+05:30`). By hand you may also write `2026-11-07` or `2026-11-07 14:30` (read as local time). The app writes the full form on save. |
+| `time` | RFC 3339 with offset (`2026-11-07T14:30:00+05:30`). By hand you may also write `2026-11-07`, `2026-11-07 14:30` or `2026-11-07T14:30` (read as local time). The app writes the full form on save. |
 | `amount` | Decimal in the project's currency. Negative = expense, positive = income: `-12.50`, `2500.00`. |
 | `category` | A category from `project.toml`. Unknown ones show as "uncategorized". |
 | `merchant`, `note` | Free text. |
@@ -113,10 +113,48 @@ id,time,amount,category,merchant,note,tags
 
 The file is UTF-8 and written with LF line endings. The app also reads CRLF files, so editing in Notepad on Windows is fine.
 
-- **Currency** is set once per project, when you create it, and can't be changed afterwards. There's no conversion between currencies. Use one project per currency.
+- **Currency** (with its `decimals`, e.g. 2 for USD, 0 for JPY) is set once per project, when you create it, and can't be changed afterwards. There's no conversion between currencies. Use one project per currency.
 - **Dates** are grouped by the local date when the transaction happened, so travel doesn't shift old spending onto other days.
 - **Hand-editing** while the app is open is fine: the app notices, reloads and tells you, instead of overwriting your changes. Rows it can't read are listed with line numbers, and the app won't save until they're fixed.
 - **Spreadsheet apps** (Excel, Numbers, LibreOffice) may reformat dates and amounts on save. On Windows, Excel also locks the file while it's open, so the app can't save until you close it. A plain text editor is safer.
+
+### project.toml
+
+```toml
+schema_version = 1
+name = "Household"
+currency = "USD"
+decimals = 2
+categories = ["groceries", "transport", "rent", "salary"]
+```
+
+`name`, `currency` and `decimals` are required. The app creates this file, plus a default `dashboard.toml`, when you set up your first project.
+
+### dashboard.toml
+
+```toml
+[[charts]]
+title = "Monthly totals"
+type = "monthly_totals"
+```
+
+One `[[charts]]` entry per chart, drawn in order. `type` is one of:
+
+| Type | Shows |
+|------|-------|
+| `monthly_totals` | Bars of expenses and income for every month between the first and last transaction; the tooltip adds the net. |
+| `by_category` | Expenses per category, largest first. Categories not listed in `project.toml` count as "uncategorized". |
+| `calendar_heatmap` | Expenses per day, as a calendar from the first to the last day that has spending. |
+
+All charts follow the date-range filter at the top of the window. Income (positive amounts) appears only in `monthly_totals`.
+
+### app.toml
+
+```toml
+last_project = "household"
+```
+
+Which project to open at startup. If it's missing or stale, the first project folder (alphabetically) is used. With a single project you can leave this file out.
 
 ### Safety
 
@@ -142,7 +180,7 @@ wails dev                # live-reloading app window (macOS)
 wails dev -tags webkit2_41   # same, on Linux
 ```
 
-The dev shell sets `EL_COSTAS_HOME` to `data/dev/`, a scratch copy of `data/sample/`, so development never touches your real data. To reset it: `rm -rf data/dev`, then re-enter the shell.
+The dev shell sets `EL_COSTAS_HOME` to `data/dev/`, a scratch copy of `data/sample/` (one fake "household" project), so development never touches your real data. To reset it: `rm -rf data/dev`, then re-enter the shell.
 
 Optional: with [direnv](https://direnv.net), put `use flake` in `.envrc` and the shell loads automatically.
 

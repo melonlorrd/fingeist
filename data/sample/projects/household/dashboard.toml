@@ -1,0 +1,11 @@
+[[charts]]
+title = "Monthly totals"
+type = "monthly_totals"
+
+[[charts]]
+title = "Spending by category"
+type = "by_category"
+
+[[charts]]
+title = "Daily spending"
+type = "calendar_heatmap"

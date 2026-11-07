@@ -3,7 +3,8 @@ data/dev/
 
 # Wails / frontend build output
 build/bin/
-frontend/dist/
+frontend/dist/*
+!frontend/dist/gitkeep
 frontend/node_modules/
 
 .direnv/
