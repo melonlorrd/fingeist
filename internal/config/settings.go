@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 // Settings is the editable part of a project, as text for the settings page.

@@ -1,5 +1,5 @@
 {
-  description = "El Costas: personal local expense manager (Go + Wails)";
+  description = "Fingeist: personal local expense manager (Go + Wails)";
 
   inputs = {
     # Release branch: fewer surprise breakages than unstable. Bump deliberately.
@@ -58,9 +58,9 @@
 
               # Dev sessions never touch real data: point the app at a scratch copy
               # of the sample data. data/dev/ is gitignored and safe to delete.
-              export EL_COSTAS_HOME="$repo_root/data/dev"
-              if [ ! -d "$EL_COSTAS_HOME" ] && [ -d "$repo_root/data/sample" ]; then
-                cp -R "$repo_root/data/sample" "$EL_COSTAS_HOME"
+              export FINGEIST_HOME="$repo_root/data/dev"
+              if [ ! -d "$FINGEIST_HOME" ] && [ -d "$repo_root/data/sample" ]; then
+                cp -R "$repo_root/data/sample" "$FINGEIST_HOME"
               fi
 
               wails_version="$(wails3 version 2>&1 | tail -n1)"
@@ -69,11 +69,11 @@
                 *) echo "WARNING: expected Wails v3.x, got '$wails_version'" ;;
               esac
 
-              echo "El Costas dev shell"
+              echo "Fingeist dev shell"
               echo "  go:    $(go version | cut -d' ' -f3)"
               echo "  node:  $(node --version)"
               echo "  wails3: $wails_version"
-              echo "  home:  $EL_COSTAS_HOME"
+              echo "  home:  $FINGEIST_HOME"
             '';
           };
         });

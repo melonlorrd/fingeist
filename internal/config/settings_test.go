@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 func TestSettingsRoundTrip(t *testing.T) {

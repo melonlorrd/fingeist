@@ -6,8 +6,8 @@ version: '3'
 # This information is used to generate the build assets.
 info:
   companyName: "" # The name of the company
-  productName: "El Costas" # The name of the application
-  productIdentifier: "com.elcostas.app" # The unique product identifier
+  productName: "Fingeist" # The name of the application
+  productIdentifier: "com.fingeist.app" # The unique product identifier
   description: "Personal local expense manager" # The application description
   copyright: "" # Copyright text
   comments: "" # Comments

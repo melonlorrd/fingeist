@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"el-costas/internal/config"
-	"el-costas/internal/prices"
-	"el-costas/internal/report"
-	"el-costas/internal/storage"
+	"fingeist/internal/config"
+	"fingeist/internal/prices"
+	"fingeist/internal/report"
+	"fingeist/internal/storage"
 )
 
 func newTestApp(t *testing.T) (*App, string) {

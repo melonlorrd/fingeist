@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 func TestSlug(t *testing.T) {

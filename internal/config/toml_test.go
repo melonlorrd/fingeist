@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 func writeFile(t *testing.T, content string) string {

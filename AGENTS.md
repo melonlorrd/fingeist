@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Rules for AI agents working on **El Costas**. For what the app is, its architecture, data format, and setup, read [`README.md`](README.md) when the task needs it.
+Rules for AI agents working on **Fingeist**. For what the app is, its architecture, data format, and setup, read [`README.md`](README.md) when the task needs it.
 
 ## ⛔ Git
 
@@ -22,7 +22,7 @@ Build only the current phase. If a task needs something from a later phase, ask.
 
 ## Reference images
 
-`reference-images/` holds screenshots of another expense app. It is temporary and untracked, and will be deleted once the UI design is set; the table below is the lasting spec, so it must stand on its own. They are the spec for **what** to build: screens, fields, metrics, charts. The owner wants the UI structure and controls to resemble them (page header cards, rounded cards, pill controls, a grouped ledger, the quick-add dialog), with navigation along the top instead of a sidebar. Keep El Costas's own palette, name, wording and icons; no emoji. Everything below is MVP. File names below are the `Pasted 2026-11-07 at …` timestamps.
+`reference-images/` holds screenshots of another expense app. It is temporary and untracked, and will be deleted once the UI design is set; the table below is the lasting spec, so it must stand on its own. They are the spec for **what** to build: screens, fields, metrics, charts. The owner wants the UI structure and controls to resemble them (page header cards, rounded cards, pill controls, a grouped ledger, the quick-add dialog), with navigation along the top instead of a sidebar. Keep Fingeist's own palette, name, wording and icons; no emoji. Everything below is MVP. File names below are the `Pasted 2026-11-07 at …` timestamps.
 
 | Screen | Image | Build |
 |--------|-------|-------|
@@ -52,7 +52,7 @@ Build only the current phase. If a task needs something from a later phase, ask.
 ## Environment
 
 - Work inside `nix develop`. Need a tool? Add it to `flake.nix`; never install globally. Don't run `nix flake update` unless asked.
-- The dev shell points `EL_COSTAS_HOME` at `data/dev/`. Don't override it.
+- The dev shell points `FINGEIST_HOME` at `data/dev/`. Don't override it.
 - Targets: macOS (arm64), Windows (amd64, arm64), Linux (amd64, arm64). Every build must work from plain `nix develop`; if a target needs anything outside Nix, it waits for a later phase. Build commands are in README → *Building for daily use*.
 - The dev shell builds the `wails3` CLI from source (nixpkgs only has an old v3 beta). On Linux it provides GTK 4 and WebKitGTK 6, so no build tags are needed. Windows builds need `CGO_ENABLED=0`; the dev shell sets it to 1 for macOS and Linux.
 - If a build fails to link, report the error; don't work around it.
@@ -74,7 +74,7 @@ The full format is in README → *Data files*. These are the invariants:
 
 - **Network** is used only to fetch investment prices, with a timeout. Offline or failed fetches never block the app or lose data: show the last known price with its as-of time and mark it out of date. Price sources: mutual funds from AMFI's daily `NAVAll.txt`; stocks and ETFs from Yahoo Finance's chart endpoint (unofficial, may break); physical gold entered by hand. Any holding's price can be set by hand. Ask before adding another source. Tests never hit the real network; use `httptest`.
 - **Never read, write, or delete the real config or data folders** (README → *Where files live*). Use `t.TempDir()`, `data/sample/`, or `data/dev/`.
-- **Folders** are resolved in one place, `internal/config`: `EL_COSTAS_HOME` if set; otherwise XDG on Linux (`$XDG_CONFIG_HOME`/`$XDG_DATA_HOME` with `~/.config` / `~/.local/share` defaults) and `os.UserConfigDir()` on macOS and Windows. Pass the env lookup in as a parameter so it's testable.
+- **Folders** are resolved in one place, `internal/config`: `FINGEIST_HOME` if set; otherwise XDG on Linux (`$XDG_CONFIG_HOME`/`$XDG_DATA_HOME` with `~/.config` / `~/.local/share` defaults) and `os.UserConfigDir()` on macOS and Windows. Pass the env lookup in as a parameter so it's testable.
 - **Money** is `domain.Money` (int64 minor units). Parse the CSV's decimal `amount` exactly, using the project currency's decimal places. **No `float64` for money**, in Go or JS.
 - **One currency per project**, fixed at creation. No currency column, no conversion.
 - **Time** is RFC 3339 with offset, or a date alone meaning "time unknown". Never invent a time: a date-only row stays date-only on save, never midnight. Bucket by the wall-clock date in the row's own offset; never call `.Local()` or `.In()` before bucketing.
@@ -104,4 +104,4 @@ The full format is in README → *Data files*. These are the invariants:
 
 ## Testing
 
-Thorough tests are required for `report`, `storage`, and folder resolution in `config` (each OS's rules, with and without XDG vars and `EL_COSTAS_HOME`): amount parsing (0/2/3 decimals, signs, garbage), time offsets and DST, buckets across midnight and month boundaries, date-only rows (round-trip unchanged, excluded from hour charts), unit quantities with 3+ decimals, intent migration from the old header, price fetch failure and offline, empty and header-only CSV, CRLF and BOM input, malformed rows, blank ids, unknown categories, atomic-write failures, backup rotation, external-change detection. No heavy frontend test tooling.
+Thorough tests are required for `report`, `storage`, and folder resolution in `config` (each OS's rules, with and without XDG vars and `FINGEIST_HOME`): amount parsing (0/2/3 decimals, signs, garbage), time offsets and DST, buckets across midnight and month boundaries, date-only rows (round-trip unchanged, excluded from hour charts), unit quantities with 3+ decimals, intent migration from the old header, price fetch failure and offline, empty and header-only CSV, CRLF and BOM input, malformed rows, blank ids, unknown categories, atomic-write failures, backup rotation, external-change detection. No heavy frontend test tooling.

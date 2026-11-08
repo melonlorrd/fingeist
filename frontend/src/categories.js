@@ -1,4 +1,4 @@
-import {SaveCategory, SetCategoryArchived} from '../bindings/el-costas/app.js';
+import {SaveCategory, SetCategoryArchived} from '../bindings/fingeist/app.js';
 
 import {el, field, fill, formDialog, pageHeader} from './dom.js';
 

@@ -3,7 +3,7 @@
 <plist version="1.0">
 	<dict>
 		<key>CFBundleExecutable</key>
-		<string>el-costas</string>
+		<string>fingeist</string>
 		<key>CFBundleGetInfoString</key>
 		<string>This is a comment</string>
 		<key>CFBundleIconFile</key>
@@ -11,9 +11,9 @@
 		<key>CFBundleIconName</key>
 		<string>appicon</string>
 		<key>CFBundleIdentifier</key>
-		<string>com.elcostas.app</string>
+		<string>com.fingeist.app</string>
 		<key>CFBundleName</key>
-		<string>El Costas</string>
+		<string>Fingeist</string>
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>

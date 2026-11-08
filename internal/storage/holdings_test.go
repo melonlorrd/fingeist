@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 const holdingsHeader = "id,class,name,ticker,units,avg_buy_price,current_price,price_as_of,price_source,notes\n"

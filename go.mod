@@ -1,4 +1,4 @@
-module el-costas
+module fingeist
 
 go 1.26.0
 

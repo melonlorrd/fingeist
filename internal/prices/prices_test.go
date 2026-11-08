@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 const amfiList = "Scheme Code;ISIN Div Payout/ ISIN Growth;ISIN Div Reinvestment;Scheme Name;Plan;Option;Net Asset Value;Date\r\n" +

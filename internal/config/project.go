@@ -10,7 +10,7 @@ import (
 	"slices"
 	"strings"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 const projectFileName = "project.toml"

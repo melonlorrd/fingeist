@@ -6,7 +6,7 @@ import (
 	"slices"
 	"time"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 // staleAfter is how old a price may get before it is shown as out of date.

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 var inr = domain.Project{Currency: "INR", Decimals: 2}

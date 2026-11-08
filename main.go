@@ -14,7 +14,7 @@ func main() {
 	app := NewApp()
 
 	wails := application.New(application.Options{
-		Name:     "El Costas",
+		Name:     "Fingeist",
 		Services: []application.Service{application.NewService(app)},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -25,7 +25,7 @@ func main() {
 	})
 	wails.Menu.Set(buildMenu(wails, app))
 	wails.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:            "El Costas",
+		Title:            "Fingeist",
 		Width:            1200,
 		Height:           800,
 		MinWidth:         640,

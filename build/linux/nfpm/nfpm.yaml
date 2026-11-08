@@ -3,7 +3,7 @@
 #
 # The lines below are called `modelines`. See `:help modeline`
 
-name: "el-costas"
+name: "fingeist"
 arch: ${GOARCH}
 platform: "linux"
 version: "0.0.1"
@@ -17,12 +17,12 @@ license: "MIT"
 release: "1"
 
 contents:
-  - src: "./bin/el-costas"
-    dst: "/usr/local/bin/el-costas"
+  - src: "./bin/fingeist"
+    dst: "/usr/local/bin/fingeist"
   - src: "./build/appicon.png"
-    dst: "/usr/share/icons/hicolor/128x128/apps/el-costas.png"
-  - src: "./build/linux/el-costas.desktop"
-    dst: "/usr/share/applications/el-costas.desktop"
+    dst: "/usr/share/icons/hicolor/128x128/apps/fingeist.png"
+  - src: "./build/linux/fingeist.desktop"
+    dst: "/usr/share/applications/fingeist.desktop"
 
 # Default dependencies for the GTK4 + WebKitGTK 6.0 stack (Ubuntu 24.04+ / Debian 13+)
 depends:

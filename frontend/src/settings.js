@@ -1,4 +1,4 @@
-import {OpenProjectFolder, SaveSettings} from '../bindings/el-costas/app.js';
+import {OpenProjectFolder, SaveSettings} from '../bindings/fingeist/app.js';
 
 import {el, field, pageHeader} from './dom.js';
 

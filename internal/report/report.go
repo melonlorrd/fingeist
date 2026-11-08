@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 const (

@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 // LedgerQuery narrows the ledger. Filter is all, expense, income, need, want or impulse.

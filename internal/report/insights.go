@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 // runningBalance is the cumulative net per day over the range, starting from what came before it.

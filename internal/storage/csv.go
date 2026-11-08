@@ -3,7 +3,7 @@ package storage
 import (
 	"time"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 // Loaded is the content of a transactions file. Hash is empty when the file does not exist.

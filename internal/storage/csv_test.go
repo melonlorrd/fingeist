@@ -10,7 +10,7 @@ import (
 
 	_ "time/tzdata"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 const csvHeader = "id,time,amount,category,merchant,note,tags\n"

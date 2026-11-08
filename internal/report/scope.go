@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 // Scope is the date range a view covers. From and To are inclusive dates, either may be empty;

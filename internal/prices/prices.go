@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 const (
@@ -216,7 +216,7 @@ func get(ctx context.Context, client *http.Client, endpoint string) (io.ReadClos
 	if err != nil {
 		return nil, err
 	}
-	request.Header.Set("User-Agent", "El Costas price check")
+	request.Header.Set("User-Agent", "Fingeist price check")
 	response, err := client.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect: %w", err)

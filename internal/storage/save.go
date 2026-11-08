@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 const (

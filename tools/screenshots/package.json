@@ -1,5 +1,5 @@
 {
-  "name": "el-costas-screenshots",
+  "name": "fingeist-screenshots",
   "private": true,
   "type": "module",
   "description": "Optional dev tool: screenshots of the running app, for reviewing the UI. Not part of the app.",

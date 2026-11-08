@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 // PresetRange resolves a named range ending today. All time has no bounds.

@@ -11,7 +11,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 const projectSchemaVersion = 1

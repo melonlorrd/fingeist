@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 )
 
-const appDirName = "el-costas"
+const appDirName = "fingeist"
 
-// Folders are where El Costas keeps settings (Config) and projects (Data).
+// Folders are where Fingeist keeps settings (Config) and projects (Data).
 type Folders struct {
 	Config string
 	Data   string
@@ -24,10 +24,10 @@ func (f Folders) AppFile() string {
 	return filepath.Join(f.Config, "app.toml")
 }
 
-// ResolveFolders applies EL_COSTAS_HOME, then each OS's convention.
+// ResolveFolders applies FINGEIST_HOME, then each OS's convention.
 // userConfigDir is os.UserConfigDir's result, used on macOS and Windows.
 func ResolveFolders(goos string, getenv func(string) string, homeDir, userConfigDir string) (Folders, error) {
-	if home := getenv("EL_COSTAS_HOME"); home != "" {
+	if home := getenv("FINGEIST_HOME"); home != "" {
 		return Folders{Config: home, Data: home}, nil
 	}
 

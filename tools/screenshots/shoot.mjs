@@ -4,8 +4,8 @@ import {mkdirSync} from 'node:fs';
 import {webkit} from 'playwright';
 
 const [scheme = 'dark', width = '1200', height = '800'] = process.argv.slice(2);
-const url = process.env.EL_COSTAS_URL ?? 'http://localhost:8080';
-const outDir = process.env.EL_COSTAS_SHOTS ?? 'out';
+const url = process.env.FINGEIST_URL ?? 'http://localhost:8080';
+const outDir = process.env.FINGEIST_SHOTS ?? 'out';
 mkdirSync(outDir, {recursive: true});
 
 const browser = await webkit.launch();

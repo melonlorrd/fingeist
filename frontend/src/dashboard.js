@@ -1,4 +1,4 @@
-import {Dashboard, PresetRange} from '../bindings/el-costas/app.js';
+import {Dashboard, PresetRange} from '../bindings/fingeist/app.js';
 
 import {datePicker, el, pageHeader} from './dom.js';
 

@@ -1,13 +1,13 @@
 [Desktop Entry]
 Version=1.0
-Name=El Costas
+Name=Fingeist
 Comment=Personal local expense manager
 # The Exec line includes %u to pass the URL to the application
-Exec=/usr/local/bin/el-costas %u
+Exec=/usr/local/bin/fingeist %u
 Terminal=false
 Type=Application
-Icon=el-costas
+Icon=fingeist
 Categories=Utility;
-StartupWMClass=el-costas
+StartupWMClass=fingeist
 
  

@@ -11,12 +11,12 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"el-costas/internal/config"
-	"el-costas/internal/domain"
-	"el-costas/internal/portfolio"
-	"el-costas/internal/prices"
-	"el-costas/internal/report"
-	"el-costas/internal/storage"
+	"fingeist/internal/config"
+	"fingeist/internal/domain"
+	"fingeist/internal/portfolio"
+	"fingeist/internal/prices"
+	"fingeist/internal/report"
+	"fingeist/internal/storage"
 )
 
 const (

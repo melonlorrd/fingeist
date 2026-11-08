@@ -1,6 +1,6 @@
 import './style.css';
 
-import {Bootstrap, CheckForChanges, CreateProject, RetrySave} from '../bindings/el-costas/app.js';
+import {Bootstrap, CheckForChanges, CreateProject, RetrySave} from '../bindings/fingeist/app.js';
 import {Events} from '@wailsio/runtime';
 
 import * as categories from './categories.js';
@@ -28,7 +28,7 @@ let renderToken = 0;
 let lastSaveError = '';
 let noticeTimer;
 
-const title = el('span', {className: 'brand'}, 'El Costas');
+const title = el('span', {className: 'brand'}, 'Fingeist');
 const nav = el('nav', {className: 'pills', 'aria-label': 'Sections'});
 const notice = el('div', {className: 'notice', role: 'status', hidden: true});
 const banner = el('div', {});
@@ -94,7 +94,7 @@ async function refresh() {
 }
 
 function renderChrome() {
-    title.textContent = boot.needsSetup ? 'El Costas' : boot.projectName;
+    title.textContent = boot.needsSetup ? 'Fingeist' : boot.projectName;
     nav.hidden = boot.needsSetup;
     nav.replaceChildren(...(boot.needsSetup ? [] : Object.entries(views).map(([key, v]) => el('button', {
         className: key === activeTab ? 'active' : '',

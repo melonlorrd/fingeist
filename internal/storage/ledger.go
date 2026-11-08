@@ -4,7 +4,7 @@ import (
 	"slices"
 	"time"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 // Ledger holds one project's transactions in memory and keeps the CSV file in step.

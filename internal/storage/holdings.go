@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 // HoldingFields is a holding as text, the same shape as a CSV row and as the edit form.

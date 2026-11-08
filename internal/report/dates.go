@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 // Dates are "2006-01-02" strings; arithmetic on them is plain calendar math, with no time zones involved.

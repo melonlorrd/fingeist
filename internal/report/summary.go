@@ -3,7 +3,7 @@ package report
 import (
 	"fmt"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 type Card struct {

@@ -7,7 +7,7 @@ import (
 
 	"github.com/oklog/ulid/v2"
 
-	"el-costas/internal/domain"
+	"fingeist/internal/domain"
 )
 
 // Fields is a transaction as text, the same shape as a CSV row and as the edit form.
