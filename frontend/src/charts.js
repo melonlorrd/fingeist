@@ -92,7 +92,7 @@ function escapeHtml(text) {
 // The chart is created once its element has a size, which may be after it is added to the page.
 function mount(parent, buildOption, data, height = DEFAULT_HEIGHT, onReady) {
     const canvas = el('div', {className: 'chart'});
-    canvas.style.height = `${height}px`;
+    canvas.style.minHeight = `${height}px`;
     parent.append(canvas);
 
     let instance = null;

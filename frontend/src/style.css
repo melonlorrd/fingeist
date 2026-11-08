@@ -151,7 +151,8 @@ input[type="checkbox"] { padding: 0; min-height: 0; }
 
 .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 12px; }
 .chart-calendar_heatmap, .chart-running_balance, .chart-workday_routine, .chart-weekday_hour_heatmap, .chart-no_spend_calendar { grid-column: 1 / -1; }
-.chart { width: 100%; }
+.charts > .card { display: flex; flex-direction: column; }
+.chart { flex: 1; width: 100%; }
 .tiles { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 .tile { display: flex; flex-direction: column; gap: 1px; min-width: 110px; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--r-inner); }
 .month-nav { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
