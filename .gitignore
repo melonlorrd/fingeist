@@ -4,8 +4,15 @@ data/dev/
 # Temporary design screenshots (see AGENTS.md)
 reference-images/
 
+# Real personal data for a manual import: never commit
+actual-data/
+
 # Wails / frontend build output
-build/bin/
+bin/
+.task/
+.wails/
+*.syso
+frontend/bindings/
 frontend/dist/
 frontend/node_modules/
 tools/screenshots/node_modules/
@@ -15,3 +22,13 @@ tools/screenshots/out/
 .DS_Store
 
 .claude/
+
+# Nix build results
+result
+result-*
+
+# Editors and logs
+.idea/
+.vscode/
+*.swp
+*.log

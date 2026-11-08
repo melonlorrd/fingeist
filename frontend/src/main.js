@@ -1,7 +1,7 @@
 import './style.css';
 
-import {Bootstrap, CheckForChanges, CreateProject, RetrySave} from '../wailsjs/go/main/App';
-import {EventsOn} from '../wailsjs/runtime/runtime';
+import {Bootstrap, CheckForChanges, CreateProject, RetrySave} from '../bindings/el-costas/app.js';
+import {Events} from '@wailsio/runtime';
 
 import * as categories from './categories.js';
 import * as dashboard from './dashboard.js';
@@ -235,7 +235,7 @@ window.addEventListener('keydown', (event) => {
 });
 
 try {
-    EventsOn('new-transaction', newTransaction);
+    Events.On('new-transaction', () => newTransaction());
 } catch {
     // Outside Wails (a plain browser) there is no native menu to listen to.
 }

@@ -1,10 +1,10 @@
-// Screenshots every tab and the two dialogs of the app served by `wails dev`, read-only.
+// Screenshots every tab and the two dialogs of the app served by the server-mode build (see README), read-only.
 // Usage: node shoot.mjs [light|dark] [width] [height]
 import {mkdirSync} from 'node:fs';
 import {webkit} from 'playwright';
 
 const [scheme = 'dark', width = '1200', height = '800'] = process.argv.slice(2);
-const url = process.env.EL_COSTAS_URL ?? 'http://localhost:34115';
+const url = process.env.EL_COSTAS_URL ?? 'http://localhost:8080';
 const outDir = process.env.EL_COSTAS_SHOTS ?? 'out';
 mkdirSync(outDir, {recursive: true});
 

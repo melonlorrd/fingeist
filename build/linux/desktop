@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=El Costas
+Comment=Personal local expense manager
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/el-costas %u
+Terminal=false
+Type=Application
+Icon=el-costas
+Categories=Utility;
+StartupWMClass=el-costas
+
+ 

@@ -295,19 +295,6 @@ func TestPresetRangeBinding(t *testing.T) {
 	}
 }
 
-func TestFolderURL(t *testing.T) {
-	tests := map[string]string{
-		"/Users/me/Library/Application Support/el-costas/projects/home": "file:///Users/me/Library/Application%20Support/el-costas/projects/home",
-		"/home/me/.local/share/el-costas":                               "file:///home/me/.local/share/el-costas",
-		"C:/Users/me/AppData/Roaming/el-costas":                         "file:///C:/Users/me/AppData/Roaming/el-costas",
-	}
-	for dir, want := range tests {
-		if got := folderURL(dir); got != want {
-			t.Errorf("folderURL(%q) = %q, want %q", dir, got, want)
-		}
-	}
-}
-
 func TestOpenProjectFolderNeedsAProject(t *testing.T) {
 	app, _ := newTestApp(t)
 	if err := app.OpenProjectFolder(); err == nil {

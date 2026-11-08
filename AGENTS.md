@@ -44,20 +44,20 @@ Build only the current phase. If a task needs something from a later phase, ask.
 - **Do what was asked, nothing more.** No unrequested features, refactors, renames, or "while I'm here" cleanups. Mention them instead.
 - **Smallest change that works.** No speculative interfaces, options, config knobs, or abstractions for future phases. Three similar lines beat a premature helper.
 - **Don't add files** unless the task needs them. Don't create docs, scripts, or examples nobody asked for.
-- **No new dependencies** without asking. Approved: Go stdlib, `BurntSushi/toml`, `oklog/ulid`, `wailsapp/wails/v2`. Frontend: `echarts`, plus what the Wails vanilla template ships.
+- **No new dependencies** without asking. Approved: Go stdlib, `BurntSushi/toml`, `oklog/ulid`, `wailsapp/wails/v3`. Frontend: `echarts`, `@wailsio/runtime`, plus what the Wails v3 vanilla template ships.
 - **Ask** when a requirement is ambiguous, especially anything touching the data format or files on disk.
 - **Keep docs true.** If you change architecture, the data format, commands, or the build, update `README.md` in the same task. If you change a rule, update this file. Project knowledge lives in these two files, not in agent memory.
-- Don't edit generated files: `frontend/wailsjs/`, `frontend/dist/`, `build/bin/`.
+- Don't edit generated files: `frontend/bindings/`, `frontend/dist/`, `bin/`.
 
 ## Environment
 
 - Work inside `nix develop`. Need a tool? Add it to `flake.nix`; never install globally. Don't run `nix flake update` unless asked.
 - The dev shell points `EL_COSTAS_HOME` at `data/dev/`. Don't override it.
 - Targets: macOS (arm64), Windows (amd64, arm64), Linux (amd64, arm64). Every build must work from plain `nix develop`; if a target needs anything outside Nix, it waits for a later phase. Build commands are in README → *Building for daily use*.
-- On Linux, pass `-tags webkit2_41` to `wails dev` and `wails build`.
+- The dev shell builds the `wails3` CLI from source (nixpkgs only has an old v3 beta). On Linux it provides GTK 4 and WebKitGTK 6, so no build tags are needed. Windows builds need `CGO_ENABLED=0`; the dev shell sets it to 1 for macOS and Linux.
 - If a build fails to link, report the error; don't work around it.
 
-**Done means:** `gofmt -l .` prints nothing, `go vet ./...` and `go test ./...` pass. For UI changes, say what to check in `wails dev`; don't claim you verified it.
+**Done means:** `gofmt -l .` prints nothing, `go vet ./...` and `go test ./...` pass. For UI changes, say what to check in `wails3 dev`; don't claim you verified it.
 
 ## Architecture rules
 

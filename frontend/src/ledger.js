@@ -1,4 +1,4 @@
-import {GetTransaction, Ledger, DeleteTransaction, AddTransaction, UpdateTransaction} from '../wailsjs/go/main/App';
+import {GetTransaction, Ledger, DeleteTransaction, AddTransaction, UpdateTransaction} from '../bindings/el-costas/app.js';
 
 import {datePicker, dayLabel, el, field, fill, formDialog} from './dom.js';
 

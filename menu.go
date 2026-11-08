@@ -3,30 +3,28 @@ package main
 import (
 	"runtime"
 
-	"github.com/wailsapp/wails/v2/pkg/menu"
-	"github.com/wailsapp/wails/v2/pkg/menu/keys"
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 const eventNewTransaction = "new-transaction"
 
-func buildMenu(app *App) *menu.Menu {
-	appMenu := menu.NewMenu()
+func buildMenu(wails *application.App, app *App) *application.Menu {
+	appMenu := application.NewMenu()
 	if runtime.GOOS == "darwin" {
-		appMenu.Append(menu.AppMenu())
+		appMenu.AddRole(application.AppMenu)
 	}
 
 	file := appMenu.AddSubmenu("File")
-	file.AddText("New Transaction", keys.CmdOrCtrl("n"), func(*menu.CallbackData) {
-		wailsruntime.EventsEmit(app.ctx, eventNewTransaction)
+	file.Add("New Transaction").SetAccelerator("CmdOrCtrl+n").OnClick(func(*application.Context) {
+		wails.Event.Emit(eventNewTransaction)
 	})
-	file.AddText("Show Project Folder", nil, func(*menu.CallbackData) {
+	file.Add("Show Project Folder").OnClick(func(*application.Context) {
 		_ = app.OpenProjectFolder()
 	})
 
 	if runtime.GOOS == "darwin" {
-		appMenu.Append(menu.EditMenu())
-		appMenu.Append(menu.WindowMenu())
+		appMenu.AddRole(application.EditMenu)
+		appMenu.AddRole(application.WindowMenu)
 	}
 	return appMenu
 }

@@ -13,11 +13,27 @@
       systems = [ "aarch64-darwin" "x86_64-darwin" "x86_64-linux" "aarch64-linux" ];
       forAllSystems = f:
         nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
+
+      # nixpkgs only carries an old v3 beta, so build the v3.1.0 CLI from source.
+      wails3 = pkgs: pkgs.buildGoModule rec {
+        pname = "wails3";
+        version = "3.1.0";
+        src = pkgs.fetchFromGitHub {
+          owner = "wailsapp";
+          repo = "wails";
+          rev = "v${version}";
+          hash = "sha256-Eqi2QEOdgjeJXYRtFJSYgqovDXn8PFoF5QExwhFg/+8=";
+        };
+        modRoot = "v3";
+        subPackages = [ "cmd/wails3" ];
+        vendorHash = "sha256-VmWjstXfAcbNf/3XpP6pUPbq5K3EApSCANFVzKsruVE=";
+        doCheck = false;
+      };
     in
     {
       devShells = forAllSystems (pkgs:
         let
-          appTools = with pkgs; [ go nodejs wails ];
+          appTools = (with pkgs; [ go nodejs ]) ++ [ (wails3 pkgs) ];
         in
         {
           default = pkgs.mkShell {
@@ -27,14 +43,14 @@
               golangci-lint
               delve            # debugger
             ]) ++ pkgs.lib.optionals pkgs.stdenv.isLinux (with pkgs; [
-              # Wails on Linux renders with WebKitGTK; build with -tags webkit2_41
+              # Wails on Linux renders with WebKitGTK 6 (GTK 4)
               pkg-config
-              gtk3
-              webkitgtk_4_1
+              gtk4
+              webkitgtk_6_0
               libsoup_3
             ]);
 
-            # Wails uses cgo on macOS and Linux
+            # Wails uses cgo on macOS and Linux. Windows builds need CGO_ENABLED=0 (see README).
             CGO_ENABLED = "1";
 
             shellHook = ''
@@ -47,16 +63,16 @@
                 cp -R "$repo_root/data/sample" "$EL_COSTAS_HOME"
               fi
 
-              wails_version="$(wails version 2>/dev/null | head -n1)"
+              wails_version="$(wails3 version 2>&1 | tail -n1)"
               case "$wails_version" in
-                v2.*) ;;
-                *) echo "WARNING: expected Wails v2.x, got '$wails_version'" ;;
+                v3.*) ;;
+                *) echo "WARNING: expected Wails v3.x, got '$wails_version'" ;;
               esac
 
               echo "El Costas dev shell"
               echo "  go:    $(go version | cut -d' ' -f3)"
               echo "  node:  $(node --version)"
-              echo "  wails: $wails_version"
+              echo "  wails3: $wails_version"
               echo "  home:  $EL_COSTAS_HOME"
             '';
           };

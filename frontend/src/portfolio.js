@@ -1,4 +1,4 @@
-import {AddHolding, DeleteHolding, GetHolding, Portfolio, UpdateHolding, UpdatePrices} from '../wailsjs/go/main/App';
+import {AddHolding, DeleteHolding, GetHolding, Portfolio, UpdateHolding, UpdatePrices} from '../bindings/el-costas/app.js';
 
 import {confirmDialog, el, field, fill, formDialog, pageHeader, select} from './dom.js';
 

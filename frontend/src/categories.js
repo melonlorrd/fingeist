@@ -1,4 +1,4 @@
-import {SaveCategory, SetCategoryArchived} from '../wailsjs/go/main/App';
+import {SaveCategory, SetCategoryArchived} from '../bindings/el-costas/app.js';
 
 import {el, field, fill, formDialog, pageHeader} from './dom.js';
 

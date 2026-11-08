@@ -1,4 +1,4 @@
-import {OpenProjectFolder, SaveSettings} from '../wailsjs/go/main/App';
+import {OpenProjectFolder, SaveSettings} from '../bindings/el-costas/app.js';
 
 import {el, field, pageHeader} from './dom.js';
 

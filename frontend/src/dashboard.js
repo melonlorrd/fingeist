@@ -1,4 +1,4 @@
-import {Dashboard, PresetRange} from '../wailsjs/go/main/App';
+import {Dashboard, PresetRange} from '../bindings/el-costas/app.js';
 
 import {datePicker, el, pageHeader} from './dom.js';
 

@@ -4,13 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"el-costas/internal/config"
 	"el-costas/internal/domain"
@@ -82,9 +81,10 @@ func NewApp() *App {
 	return &App{sources: prices.DefaultSources()}
 }
 
-func (a *App) startup(ctx context.Context) {
+func (a *App) ServiceStartup(ctx context.Context, _ application.ServiceOptions) error {
 	a.ctx = ctx
 	a.startErr = a.openProject()
+	return nil
 }
 
 func (a *App) Bootstrap() (Boot, error) {
@@ -278,8 +278,7 @@ func (a *App) OpenProjectFolder() error {
 	if a.ledger == nil {
 		return errNoProject
 	}
-	wailsruntime.BrowserOpenURL(a.ctx, folderURL(filepath.Dir(a.projectPath)))
-	return nil
+	return application.Get().Env.OpenFileManager(filepath.Dir(a.projectPath), false)
 }
 
 // RetrySave writes changes that could not be saved earlier.
@@ -385,12 +384,4 @@ func (a *App) reloadProjectIfChanged() (bool, error) {
 
 func today() string {
 	return time.Now().Format(domain.DateLayout)
-}
-
-func folderURL(dir string) string {
-	path := filepath.ToSlash(dir)
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
-	}
-	return (&url.URL{Scheme: "file", Path: path}).String()
 }
