@@ -1,0 +1,27 @@
+{
+    "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
+    "files": {
+        "includes": ["src/**/*.js", "src/**/*.json", "src/**/*.css", "public/sw.js", "vite.config.js", "biome.json", "tsconfig.json"]
+    },
+    "formatter": {
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineWidth": 140
+    },
+    "javascript": {
+        "formatter": {
+            "quoteStyle": "single",
+            "bracketSpacing": false,
+            "trailingCommas": "all",
+            "arrowParentheses": "always"
+        }
+    },
+    "linter": {
+        "rules": {
+            "recommended": true,
+            "style": {
+                "noDescendingSpecificity": "off"
+            }
+        }
+    }
+}

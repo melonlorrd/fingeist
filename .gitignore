@@ -1,22 +1,12 @@
-# Dev scratch copy of sample data (see flake.nix shellHook)
-data/dev/
-
 # Temporary design screenshots (see AGENTS.md)
 reference-images/
 
 # Real personal data for a manual import: never commit
 actual-data/
 
-# Wails / frontend build output
-bin/
-.task/
-.wails/
-*.syso
-frontend/bindings/
-frontend/dist/
-frontend/node_modules/
-tools/screenshots/node_modules/
-tools/screenshots/out/
+# Build output and dependencies
+dist/
+node_modules/
 
 .direnv/
 .DS_Store

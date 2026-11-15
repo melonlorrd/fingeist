@@ -1,311 +1,84 @@
 # Fingeist
 
-A personal, local-only expense tracker for the desktop: **macOS** (Apple Silicon), **Windows**, and **Linux**. You record transactions in a plain CSV file, through the app or by hand, and Fingeist turns them into dashboards so you can see where your money goes.
+A personal expense ledger that runs in the browser, works offline, and syncs between your devices through a private GitHub repository you own. Everything is encrypted on the device before it is uploaded. There is no Fingeist server, account or telemetry.
 
-- **Local only.** No server, no cloud, no account. The only network use is fetching investment prices; offline, the app shows the last known prices marked as out of date.
-- **Plain files.** Your data is CSV and TOML you can open in any text editor.
-- **Separate projects.** For example, one for household spending and one for a small business, each with its own currency, categories and dashboard.
+> **Status:** MVP. See the Scope table in [`AGENTS.md`](AGENTS.md).
 
-> **Status:** MVP in progress: one project, ledger, habit intent, categories, investment portfolio, and a dashboard of insight charts. See the Scope table in [`AGENTS.md`](AGENTS.md) for what's in each phase.
+## Using it
 
----
+**Install** from the deployed site (e.g. `https://<you>.github.io/fingeist/`):
+
+| Device | How |
+|--------|-----|
+| iPhone, iPad | Safari, Share, *Add to Home Screen* |
+| Mac | Safari, File, *Add to Dock* |
+| Windows, Linux | Chrome or Edge, *Install* in the address bar |
+
+**Set up sync** on your first device:
+
+1. Create an empty private GitHub repository, e.g. `fingeist-data`.
+2. Create a fine-grained token limited to that repository with *Contents: Read and write*. Make one per device, so you can revoke one alone.
+3. In Fingeist: Settings, Sync, *Set up sync*, with the repository, token and a passphrase.
+
+On other devices, choose *Join from another device* on the first screen, with a new token and the same passphrase. Keep the passphrase in a password manager: without it, no new device can read the data.
 
 ## Architecture
 
-```
-┌───────────────────── Fingeist (native window) ───────────────┐
-│  Frontend (system webview)       vanilla JS + ECharts         │
-│    renders what Go hands it; no money math                    │
-│                    ▲  Wails bindings (frontend/bindings/)      │
-│  app.go            thin methods exposed to the frontend       │
-│                    ▼                                          │
-│  internal/report     []Transaction → chart data (pure)        │
-│  internal/portfolio  holdings → valued portfolio (pure)       │
-│  internal/prices     investment prices (the only network use) │
-│  internal/storage    CSV load/save, atomic writes, backups    │
-│  internal/config     per-OS folders, TOML config files        │
-│  internal/domain     Transaction, Money, Project (no I/O)     │
-└──────────────────────────────┬────────────────────────────────┘
-                               ▼
-                 config folder + data folder (see below)
+```mermaid
+flowchart TD
+    ui["src/ui: screens, ECharts (renders only)"] -->|calls| core["src/core: money, time, reports, merge, sync, encryption (pure)"]
+    platform["src/platform: IndexedDB, device clock"] -->|handed in by src/main.js| core
+    core -->|GitHub REST API| repo[("Private data repo (encrypted)")]
 ```
 
-**Stack:** Go, [Wails v3](https://v3.wails.io) (v3.1.0), vanilla JS, [ECharts](https://echarts.apache.org). Wails draws the UI with the webview the OS already has:
+Plain JavaScript modules, bundled by Vite, with ECharts. `core` takes the store, crypto, `fetch` and clock as parameters, so it is fully tested under Node. Every change is saved locally first and queued; sync pulls other devices' files, merges them, and uploads this device's queue. `public/sw.js` keeps the app usable offline.
 
-| OS | Webview |
-|----|---------|
-| macOS | WebKit (built in) |
-| Windows | WebView2 (built into Windows 10/11) |
-| Linux | WebKitGTK 6.0 with GTK 4 (system package) |
-
-**How it works**
-
-1. At startup the app loads the selected project's files into memory.
-2. `report.Run(chartDef, txns, project, scope)` turns all transactions plus each chart definition from `dashboard.toml` into plain data structs; the scope is the date range being viewed. It's pure Go with no I/O, so it's easy to test. `portfolio.Build` values the holdings the same way.
-3. The frontend receives those structs and only draws them. Every amount arrives pre-formatted as text; the integer minor-unit value that comes with it is used only to size bars and cells, never for arithmetic.
-4. Each edit saves the whole CSV atomically, after taking a backup. If the file changed on disk since it was loaded, the app reloads it instead of saving.
-5. Prices are fetched only when you press *Update prices* (see [Investment prices](#investment-prices)).
-
-Dependencies point downward only: `app.go` → `report` / `portfolio` / `prices` / `storage` / `config` → `domain`.
-
-### Code layout
+## Data format
 
 ```
-main.go              Wails bootstrap
-Taskfile.yml         Wails build tasks; platform assets and app metadata are in build/
-app.go               Methods bound to the frontend
-menu.go              Native menu (File, Edit, Window)
-internal/
-  domain/            Core types. No I/O.
-  storage/           CSV read/write, atomic save, backups, external-change detection, in-memory ledger
-  report/            Aggregations for charts, summary cards, ledger view, date presets
-  portfolio/         Valuing holdings, allocation and drift
-  prices/            Fetching investment prices (the only network code)
-  config/            Folder resolution and TOML loading
-frontend/
-  index.html, src/   UI and one renderer per chart type
-  bindings/          Generated by Wails (don't edit, gitignored; `wails3 dev` and `wails3 build` create it)
-tools/screenshots/   Optional dev tool: screenshots of the running app
-data/sample/         Fake sample data, laid out like an FINGEIST_HOME (committed)
-data/dev/            Scratch copy used during development (gitignored)
+vault.json                      passphrase-wrapped data key, encrypted project meta
+devices/<deviceId>/00000001.bin encrypted change log, one file per sync
 ```
 
----
+- **Log files** are a version byte, a 12-byte nonce, and AES-256-GCM ciphertext of JSON Lines, with the file's path as additional data. A device writes only under its own folder and never changes a file. `vault.json` is overwritten only when the passphrase changes.
+- **The data key** is wrapped with PBKDF2-SHA256 (600,000 iterations) from the passphrase. **Meta** holds the name, currency and decimal places, fixed at creation.
+- **Merge is per field:** a change carries only the fields it sets, and for each `(kind, id, field)` the value with the highest hybrid logical clock (`<ms>-<counter>`) wins, device id breaking ties. A delete is a tombstone; a later edit brings the record back. Edits to different fields on two devices both survive.
 
-## Where files live
-
-Fingeist follows each OS's convention. On Linux that means the XDG base directories (`~/.config`, `~/.local/share`). Settings go in the **config folder**; your transactions go in the **data folder**.
-
-| OS | Config (`app.toml`) | Data (`projects/`) |
-|----|---------------------|--------------------|
-| Linux | `$XDG_CONFIG_HOME/fingeist/`, default `~/.config/fingeist/` | `$XDG_DATA_HOME/fingeist/`, default `~/.local/share/fingeist/` |
-| macOS | `~/Library/Application Support/fingeist/` | same folder |
-| Windows | `%APPDATA%\fingeist\` | same folder |
-
-macOS and Windows keep config and data in the same app folder, which is the norm there (and Time Machine backs up `~/Library`). Don't expect `~/.config` on macOS: that's a Linux convention that some command-line tools borrow, not the place for GUI apps.
-
-**Override:** set `FINGEIST_HOME` to put everything in one folder on any OS (`app.toml` and `projects/` directly inside it). Development uses this; you can also use it to keep your data in a folder of your choice.
-
-```
-<config folder>/
-  app.toml                 last_project = "<slug>" (optional)
-
-<data folder>/
-  projects/<slug>/
-    project.toml           Name, currency, decimals, categories, schema_version
-    dashboard.toml         Chart definitions
-    transactions.csv       Source of truth
-    holdings.csv           Investments (optional; created on first holding)
-    backups/               Automatic backups (newest 20)
+```json
+{"kind":"txn","id":"01KA…","op":"put","clock":"1763112600000-0000","device":"01KA…","fields":{"note":"dinner"}}
 ```
 
-A project is a self-contained folder: copy it to back it up or move it to another machine, on any OS.
+| `kind` | `id` | Fields |
+|--------|------|--------|
+| `txn` | ULID | `time`, `amount` (negative: expense), `account`, `category` (ids; `""` is Uncategorized), `merchant`, `note`, `tags`, `intent` (expenses), `refund` (positive amounts), `splits` (`[{category, person, amount}]`, adding up to the amount), `recurring` |
+| `transfer` | ULID | `time`, `amount` (positive), `from`, `to`, `note`, `recurring` |
+| `category` | ULID | `name`, `color`, `archived`, `mergedInto` |
+| `account` | ULID | `name`, `kind` (`own` or `person`), `opening`, `archived`, `mergedInto` |
+| `budget` | category id | `amount` (monthly) |
+| `recurring` | ULID | `entry` (`txn` or `transfer`), `template`, `every` (`day`, `week`, `month`, `year`), `start`, `until`, `paused` |
+| `setting` | `project` | `name`, `thresholds`, `workdays`, `monthStart` |
+| `device` | device id | `name` |
 
-## Data files
+- Amounts are decimal strings, never numbers. Times are RFC 3339 with offset, or a bare date when the time is unknown.
+- Names can change because everything refers to ids. A `mergedInto` redirects a category or account to another one; a deleted category leaves its entries Uncategorized.
+- A person is an account: a share split with them, or money moved to them, is what they owe you. Only `own` accounts count in your balance.
+- Repeats create each due entry with the id `<repeat id>.<date>`, so two devices creating it offline write the same record, and a deleted one stays deleted.
 
-### transactions.csv
+## Self-hosting
 
-```csv
-id,time,amount,category,merchant,note,tags,intent
-01JC8Z4X9K2M3N4P5Q6R7S8T9V,2026-11-07T14:30:00+05:30,-120.00,groceries,Local market,,food;weekly,need
-,2026-11-08,-45.50,transport,Metro,,,
-```
-
-| Column | Format |
-|--------|--------|
-| `id` | ULID. Leave blank when adding a row by hand; the app fills it in. |
-| `time` | RFC 3339 with offset (`2026-11-07T14:30:00+05:30`). By hand you may also write `2026-11-07 14:30` or `2026-11-07T14:30` (read as local time; the app writes the full form on save), or just `2026-11-07` when the time is unknown (kept as a date on save). |
-| `amount` | Decimal in the project's currency. Negative = expense, positive = income: `-12.50`, `2500.00`. |
-| `category` | A category from `project.toml`. Unknown ones show as "uncategorized". |
-| `merchant`, `note` | Free text. |
-| `tags` | Semicolon-separated: `food;weekly`. |
-| `intent` | `need`, `want` or `impulse`, for expenses only. Blank when not set; ignored on income. |
-
-The file is UTF-8 and written with LF line endings. The app also reads CRLF files, so editing in Notepad on Windows is fine.
-
-Files from before the `intent` column (a header without it) are read as they are and written with the new header on the next save, after the usual backup.
-
-- **Currency** (with its `decimals`, e.g. 2 for INR, 0 for JPY) is chosen when you create a project (INR by default), and can't be changed afterwards. There's no conversion between currencies. Use one project per currency. Amounts are shown with the currency symbol and standard thousands grouping (`₹883,727.29`, `$1,234.50`); INR, USD, EUR, GBP and JPY have symbols, other currencies show their code.
-- **Dates** are grouped by the local date when the transaction happened, so travel doesn't shift old spending onto other days. Rows without a time count everywhere except the hour-of-day charts, which say how many they left out.
-- **Hand-editing** while the app is open is fine: the app notices, reloads and tells you, instead of overwriting your changes. Rows it can't read are listed with line numbers, and the app won't save until they're fixed.
-- **Spreadsheet apps** (Excel, Numbers, LibreOffice) may reformat dates and amounts on save. On Windows, Excel also locks the file while it's open, so the app can't save until you close it. A plain text editor is safer.
-
-### project.toml
-
-```toml
-schema_version = 1
-name = "Household"
-currency = "INR"
-decimals = 2
-categories = ["groceries", "transport", "rent", "salary", "gifts"]
-archived_categories = ["gifts"]
-small_purchase_thresholds = ["100", "250", "500", "1000"]
-workdays = ["mon", "tue", "wed", "thu", "fri"]
-
-[category_colors]
-groceries = "#5b8a3c"
-
-[target_allocation]
-mutual_fund = 50
-equity = 30
-gold = 20
-```
-
-`name`, `currency` and `decimals` are required; the rest is optional. The app creates this file, plus a default `dashboard.toml`, when you set up your first project, and rewrites it when you change settings or categories (after a backup).
-
-| Key | Meaning |
-|-----|---------|
-| `categories` | The category names that transactions refer to. Names can't be changed in the app. |
-| `archived_categories` | Categories hidden from the picker; they stay valid on existing rows. |
-| `[category_colors]` | `#rrggbb` per category; categories without one get a colour from a built-in palette. |
-| `small_purchase_thresholds` | Amounts as text (never floats) for the small-purchases chart. Default 100, 250, 500, 1000. |
-| `workdays` | `mon` to `sun`. Used by the workday charts. Default Monday to Friday. |
-| `[target_allocation]` | Whole percents for `mutual_fund`, `equity` and `gold`. Leave out for no targets; otherwise they must add up to 100. |
-
-### dashboard.toml
-
-```toml
-[[charts]]
-title = "Monthly totals"
-type = "monthly_totals"
-```
-
-One `[[charts]]` entry per chart, drawn in order. There are no per-chart options. `type` is one of:
-
-| Type | Shows |
-|------|-------|
-| `monthly_totals` | Bars of expenses and income for every month between the first and last transaction; the tooltip adds the net. |
-| `by_category` | Expenses per category in the category's colour, largest first. Categories not listed in `project.toml` count as "uncategorized". |
-| `calendar_heatmap` | Expenses per day, as a calendar from the first to the last day that has spending. |
-| `running_balance` | The cumulative net (income minus expenses) at the end of each day. It starts from the balance before the range, so it matches the ledger balance used in net worth. |
-| `intent_trends` | Expenses per month, split into need, want and impulse. Expenses without an intent are counted in a note. |
-| `small_purchases` | For each threshold in `project.toml`: the expenses at or under it, their count, total, and share of all expenses. Pick the threshold in the chart. |
-| `workday_routine` | Spending per hour of the day on workdays. Pick an hour for occurrences, share of workdays (days with spending in that hour), average, total, top categories and the most common merchants (or notes). |
-| `weekday_hour_heatmap` | Spending by weekday and hour. |
-| `no_spend_calendar` | A month view marking days without expenses, with the current streak, the best streak in the month, and the count of no-spend days. Days before your first transaction and after today never count. |
-
-All charts follow the date range at the top of the Dashboard, except that `running_balance` and `no_spend_calendar` also use earlier data (the opening balance, and the current streak). Income (positive amounts) appears only in `monthly_totals` and `running_balance`. The hour charts use the wall-clock hour in each row's own offset and leave out rows without a time, listing them so you can add one.
-
-**Summary cards** (total spent, total income, net savings, average daily spend) are always shown above the charts. Each compares with the previous period of the same length directly before the range, or says there's no previous data (always the case for *All time*). Average daily spend counts the days of the range up to today.
-
-**Range presets:** *This month* is the 1st of this month to today, *3 months* the 1st of two months ago to today, *Year to date* January 1 to today, *All time* has no bounds. You can also type any from and to date.
-
-### app.toml
-
-```toml
-last_project = "household"
-```
-
-Which project to open at startup. If it's missing or stale, the first project folder (alphabetically) is used. With a single project you can leave this file out.
-
-### holdings.csv
-
-```csv
-id,class,name,ticker,units,avg_buy_price,current_price,price_as_of,price_source,notes
-01JC8Z4X9K2M3N4P5Q6R7SH001,mutual_fund,Index fund,119551,684.797,52.3417,58.9120,2026-11-07T00:00:00+05:30,amfi,Folio 1234567
-```
-
-| Column | Format |
-|--------|--------|
-| `id` | ULID. Leave blank when adding a row by hand. |
-| `class` | `mutual_fund`, `equity` or `gold` (physical gold only). |
-| `name`, `notes` | Free text. |
-| `ticker` | Mutual funds: the AMFI scheme code. Equity: the Yahoo Finance symbol, e.g. `RELIANCE.NS`. Blank for gold. |
-| `units` | Exact decimal, up to 8 places. Grams for gold. |
-| `avg_buy_price` | Exact decimal per unit, in the project currency. |
-| `current_price` | Exact decimal per unit. Blank means the buy price. |
-| `price_as_of` | RFC 3339 time of the price; blank if never set. |
-| `price_source` | `manual`, `amfi` or `yahoo`; blank if never set. |
-
-Changing a holding's current price in the app marks it `manual` with the current time. A price counts as **out of date** when it was never set or is more than three days old. The file follows the same safety rules as `transactions.csv`.
-
-### Investment prices
-
-This is the only place Fingeist uses the network, and only when you press *Update prices* on the Portfolio page. Each request times out after 15 seconds.
-
-- **Mutual funds:** AMFI's daily file, `https://www.amfiindia.com/spages/NAVAll.txt`, matched by scheme code.
-- **Stocks and ETFs:** Yahoo Finance's chart endpoint. It is unofficial and may break or change. Prices are taken as they come, assumed to be in the project currency, and kept to 4 decimal places.
-- **Physical gold:** entered by hand.
-
-Any holding's price can also be set by hand. If a fetch fails or you're offline, nothing is lost: the holding keeps its last price, shown with its as-of time and marked out of date, and the failures are listed.
-
-**Net worth** is the portfolio value plus the ledger's running balance (the sum of all transactions).
-
-### Safety
-
-- Every save writes to a temp file, syncs it to disk, then renames it over the original, so a crash can't leave a half-written file.
-- Before a save, the previous file is copied to `backups/`, at most once per file every 10 minutes so that a burst of edits doesn't push out older backups; the newest 20 of each file are kept (`transactions`, `holdings`, `project`).
-- Development never touches the real folders (see below).
-
----
-
-## Using the app
-
-- **⌘N** (Ctrl+N on Windows and Linux), or *File → New Transaction*, adds a transaction from anywhere. **/** jumps to the ledger search.
-- Deleting a transaction shows an **Undo** bar for a few seconds; undo adds it back as a new row.
-- *File → Show Project Folder*, or *Settings → Show project folder*, opens the project's files in your file manager.
-- Charts follow the system's light and dark setting, also when it changes while the app is open.
-- The window can be resized or tiled down to 640 × 440.
-
----
+Fork the repository, then set Settings, Pages, Source to *GitHub Actions*; each push to `main` tests, builds and deploys. Whoever serves the app could read the token and passphrase on devices using it, so deploying your own fork is the safest choice. `src/sync-hosts.json` lists the only hosts the app may connect to.
 
 ## Development
 
-Development uses [Nix](https://nixos.org) (with flakes enabled) on macOS or Linux. Nix doesn't run natively on Windows; build Windows binaries from macOS or Linux (see below), or develop under WSL2.
-
-Extra requirements:
-- **macOS:** Xcode Command Line Tools (`xcode-select --install`).
-- **Linux:** nothing extra; the dev shell provides GTK and WebKitGTK.
-
-The first `nix develop` compiles the `wails3` CLI from source (a few minutes, once).
+With [Nix](https://nixos.org) (flakes enabled), on macOS or Linux:
 
 ```sh
-nix develop              # dev shell: Go, Node, the wails3 CLI, linters
-wails3 doctor            # check the toolchain
-wails3 dev               # live-reloading app window
+nix develop   # then:
+dev           # live-reloading dev server on http://127.0.0.1:5173
+check         # lint, format check, type check, all tests
+fmt           # format and apply safe lint fixes
+build         # production build into dist/
+preview       # build and serve dist/, to try offline mode
 ```
 
-The dev shell sets `FINGEIST_HOME` to `data/dev/`, a scratch copy of `data/sample/` (one fake "household" project with transactions, holdings and all nine charts; the fund and the stock use real identifiers with made-up quantities, so *Update prices* really fetches them), so development never touches your real data. To reset it: `rm -rf data/dev`, then re-enter the shell.
-
-Optional: with [direnv](https://direnv.net), put `use flake` in `.envrc` and the shell loads automatically.
-
-Optional: to review the UI without taking screenshots by hand, `tools/screenshots/` drives the app in server mode (a build with no window that serves the same UI over HTTP on `localhost:8080`) and saves a screenshot of every tab and the two dialogs, in light or dark mode at any window size. It only reads; it never saves anything. It has its own `package.json`, separate from the app:
-
-```sh
-go build -buildvcs=false -tags server -o bin/fingeist-server . && ./bin/fingeist-server   # leave running
-cd tools/screenshots
-npm install && npx playwright install webkit
-npm run shoot -- dark 1200 800    # light or dark, width, height; images go to tools/screenshots/out/
-```
-
-| Task | Command |
-|------|---------|
-| Tests | `go test ./...` |
-| Format | `gofmt -w .` |
-| Vet / lint | `go vet ./...` · `golangci-lint run` |
-
-## Building for daily use
-
-Every build lands in `bin/`. Builds aren't code-signed: that's fine on the machine that built them. On another machine, macOS Gatekeeper and Windows SmartScreen will warn the first time you open the app.
-
-All builds run inside `nix develop`:
-
-| Target | Build on | Command | Output |
-|--------|----------|---------|--------|
-| macOS, Apple Silicon | Apple Silicon Mac | `wails3 package` | `fingeist.app` |
-| Windows x64 / ARM | macOS or Linux | `CGO_ENABLED=0 wails3 build GOOS=windows ARCH=amd64` (or `ARCH=arm64`) | `fingeist.exe` |
-| Linux x64 / ARM | Linux, same CPU type | `wails3 build` | `fingeist` |
-
-Notes:
-- **Intel Macs aren't supported yet.** The Nix toolchain on Apple Silicon can't link Intel binaries; this is planned for a later phase.
-- **Linux builds can't be cross-compiled** (they link against GTK), so build on Linux. A binary built from the Nix shell expects GTK 4 and WebKitGTK 6.0 to be installed on the system that runs it.
-- **Windows:** the `.exe` needs the WebView2 runtime, which ships with Windows 10 and 11. Copy it anywhere and run it.
-
-Install:
-- **macOS:** copy `fingeist.app` to `/Applications`.
-- **Windows:** copy `fingeist.exe` to a folder such as `%LOCALAPPDATA%\Programs\fingeist\` and pin it to Start.
-- **Linux:** copy `fingeist` to `~/.local/bin/`.
-
-A release build uses the real folders from [Where files live](#where-files-live). On first run it creates them and asks you to set up your first project.
-
-**Back up your data** by copying the data folder. Time Machine covers it on macOS by default. Windows File History does not include `%APPDATA%` by default, so add that folder yourself, or point `FINGEIST_HOME` at a folder you already back up.
+`check` runs Biome, `tsc` over JSDoc types, the `core` tests, an architecture test, and a UI smoke test in happy-dom. CI runs `check` and `build` before every deploy. The dev server is a different browser origin from the deployed app, so its data is separate; to try sync, use a throwaway repository.
