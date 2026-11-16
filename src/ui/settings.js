@@ -1,4 +1,4 @@
-import {el, field, pageHeader} from './dom.js';
+import {closeDialog, el, field, formDialog, pageHeader} from './dom.js';
 import {eraseDevice, syncCard} from './sync.js';
 
 const DAYS = [
@@ -112,13 +112,9 @@ export async function render(container, ctx) {
 }
 
 function repeatsCard(ctx) {
-    const act = async (change) => {
-        const error = await ctx.perform(change);
-        if (error) {
-            ctx.notify(error, true);
-        }
-    };
     const repeats = ctx.boot.recurring;
+    const detail = (r) =>
+        `${r.amount}, ${EVERY[r.every]} from ${r.start}${r.until ? ` until ${r.until}` : ''}${r.paused ? ' · paused' : ''}`;
     return section(
         'Repeats',
         'Rent, subscriptions, salary. Make one by choosing Repeat when adding an entry. Past entries stay when you stop a repeat.',
@@ -126,39 +122,45 @@ function repeatsCard(ctx) {
             ? el('p', {className: 'muted'}, 'Nothing repeats yet.')
             : el(
                   'ul',
-                  {className: 'account-list'},
+                  {className: 'card rows'},
                   repeats.map((r) =>
                       el(
                           'li',
-                          {className: r.paused ? 'archived' : ''},
+                          {},
                           el(
-                              'span',
-                              {},
-                              el('strong', {}, r.label),
-                              el(
-                                  'small',
-                                  {className: 'muted'},
-                                  ` ${r.amount}, ${EVERY[r.every]} from ${r.start}${r.until ? ` until ${r.until}` : ''}${r.paused ? ', paused' : ''}`,
-                              ),
-                          ),
-                          el('span'),
-                          el(
-                              'span',
-                              {className: 'actions'},
-                              el(
-                                  'button',
-                                  {className: 'quiet', onclick: () => act(() => ctx.app.setRepeatPaused(r.id, !r.paused))},
-                                  r.paused ? 'Resume' : 'Pause',
-                              ),
-                              r.until
-                                  ? null
-                                  : el('button', {className: 'quiet', onclick: () => act(() => ctx.app.stopRepeat(r.id))}, 'Stop'),
-                              el('button', {className: 'quiet danger', onclick: () => act(() => ctx.app.deleteRepeat(r.id))}, 'Delete'),
+                              'button',
+                              {className: 'row', onclick: () => openRepeat(ctx, r, detail(r))},
+                              el('span'),
+                              el('span', {className: 'what'}, el('strong', {}, r.label), el('small', {className: 'muted'}, detail(r))),
+                              el('span'),
+                              el('span'),
                           ),
                       ),
                   ),
               ),
     );
+}
+
+function openRepeat(ctx, repeat, detail) {
+    const act = async (change) => {
+        closeDialog();
+        const error = await ctx.perform(change);
+        if (error) {
+            ctx.notify(error, true);
+        }
+    };
+    formDialog({
+        title: repeat.label,
+        fields: [el('p', {className: 'muted'}, detail), el('p', {className: 'muted'}, 'Entries already added stay, whatever you do here.')],
+        submitLabel: repeat.paused ? 'Resume' : 'Pause',
+        actions: [
+            el('button', {type: 'button', className: 'quiet danger', onclick: () => act(() => ctx.app.deleteRepeat(repeat.id))}, 'Delete'),
+            repeat.until
+                ? null
+                : el('button', {type: 'button', className: 'quiet', onclick: () => act(() => ctx.app.stopRepeat(repeat.id))}, 'Stop today'),
+        ].filter((b) => b !== null),
+        onSubmit: () => ctx.perform(() => ctx.app.setRepeatPaused(repeat.id, !repeat.paused)),
+    });
 }
 
 function download(name, type, text) {

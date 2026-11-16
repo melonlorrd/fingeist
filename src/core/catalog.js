@@ -7,10 +7,12 @@ import {sameName} from './workspace.js';
 
 /** Picker values starting with this name a new account or category to create, e.g. "new:Cash". */
 export const NEW_PREFIX = 'new:';
+const PALETTE = ['#2a78d6', '#1baf7a', '#eb6834', '#eda100', '#8a5cd6', '#d64f8a', '#3aa6b9', '#7a8a3c'];
 
 /** @param {import('./workspace.js').Workspace} ws */
 export async function createCategory(ws, name, color) {
-    const fields = categoryFields({name, color});
+    const count = ws.view().project.categoryById.size;
+    const fields = categoryFields({name, color: color || PALETTE[count % PALETTE.length]});
     if (sameName(ws.view().project.categories, fields.name)) {
         throw new Error(`There is already a category called "${fields.name}"`);
     }

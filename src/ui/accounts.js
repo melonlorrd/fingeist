@@ -12,48 +12,33 @@ export async function render(container, ctx) {
     const people = ctx.boot.accounts.filter((a) => a.kind === 'person');
     const merged = ctx.boot.merged.accounts;
 
-    const accountRow = (a) =>
+    const detail = (a) => {
+        if (!a.listed) {
+            return 'Deleted';
+        }
+        const owes =
+            a.owes === 'owes-you'
+                ? `Owes you ${a.settle}`
+                : a.owes === 'you-owe'
+                  ? `You owe ${a.settle}`
+                  : a.kind === 'person'
+                    ? 'Settled'
+                    : '';
+        return [owes, a.archived ? 'Archived' : ''].filter(Boolean).join(' · ');
+    };
+    const row = (a) =>
         el(
             'li',
-            {className: a.archived ? 'archived' : ''},
+            {},
             el(
-                'span',
-                {},
-                el('strong', {}, a.name),
-                a.archived ? el('small', {className: 'muted'}, ' archived') : null,
-                a.listed ? null : el('small', {className: 'muted'}, ' deleted'),
-            ),
-            el('span', {className: `amount ${a.balance.negative ? 'expense' : ''}`}, a.balance.text),
-            el(
-                'span',
-                {className: 'actions'},
-                el('button', {className: 'quiet', onclick: () => ctx.openLedger({account: a.id})}, 'Entries'),
-                a.listed ? el('button', {className: 'quiet', onclick: () => openAccount(ctx, a)}, 'Edit') : null,
+                'button',
+                {className: 'row', onclick: () => (a.listed ? openAccount(ctx, a) : ctx.openLedger({account: a.id}))},
+                el('span'),
+                el('span', {className: 'what'}, el('strong', {}, a.name), detail(a) ? el('small', {className: 'muted'}, detail(a)) : null),
+                el('span'),
+                el('span', {className: `amount ${a.balance.negative ? 'expense' : ''}`}, a.balance.text),
             ),
         );
-
-    const personRow = (p) => {
-        const owesYou = p.owes === 'owes-you';
-        const youOwe = p.owes === 'you-owe';
-        return el(
-            'li',
-            {className: p.archived ? 'archived' : ''},
-            el(
-                'span',
-                {},
-                el('strong', {}, p.name),
-                el('small', {className: 'muted'}, owesYou ? ` owes you ${p.settle}` : youOwe ? ` you owe ${p.settle}` : ' settled'),
-            ),
-            el('span', {className: `amount ${youOwe ? 'expense' : ''}`}, p.balance.text),
-            el(
-                'span',
-                {className: 'actions'},
-                owesYou || youOwe ? el('button', {className: 'quiet', onclick: () => settle(ctx, p, owesYou)}, 'Settle up') : null,
-                el('button', {className: 'quiet', onclick: () => ctx.openLedger({account: p.id})}, 'Entries'),
-                el('button', {className: 'quiet', onclick: () => openAccount(ctx, p)}, 'Edit'),
-            ),
-        );
-    };
 
     fill(
         container,
@@ -70,7 +55,7 @@ export async function render(container, ctx) {
             el('p', {className: 'muted'}, 'Bank accounts, cash, cards. A debt, such as a credit card, has a negative balance.'),
             own.length === 0
                 ? el('p', {className: 'muted'}, 'No accounts yet. Add one here or while adding an entry.')
-                : el('ul', {className: 'account-list'}, own.map(accountRow)),
+                : el('ul', {className: 'card rows'}, own.map(row)),
         ),
         el(
             'article',
@@ -83,7 +68,7 @@ export async function render(container, ctx) {
                       {className: 'muted'},
                       'No one yet. Use "Split with a person" when adding an expense, or pick a person as the account when they paid for you.',
                   )
-                : el('ul', {className: 'account-list'}, people.map(personRow)),
+                : el('ul', {className: 'card rows'}, people.map(row)),
         ),
         merged.length === 0
             ? null
@@ -93,14 +78,36 @@ export async function render(container, ctx) {
                   el('h2', {}, 'Merged'),
                   el(
                       'ul',
-                      {className: 'plain account-list'},
+                      {className: 'card rows'},
                       merged.map((m) =>
                           el(
                               'li',
                               {},
-                              el('span', {}, `${m.name} → ${m.into}`),
-                              el('span'),
-                              el('button', {className: 'quiet', onclick: () => act(() => ctx.app.unmergeAccount(m.id))}, 'Undo'),
+                              el(
+                                  'button',
+                                  {
+                                      className: 'row',
+                                      onclick: async () => {
+                                          if (
+                                              await confirmDialog(
+                                                  `Undo the merge of ${m.name} into ${m.into}? Its entries go back to ${m.name}.`,
+                                                  'Undo merge',
+                                              )
+                                          ) {
+                                              await act(() => ctx.app.unmergeAccount(m.id));
+                                          }
+                                      },
+                                  },
+                                  el('span'),
+                                  el(
+                                      'span',
+                                      {className: 'what'},
+                                      el('strong', {}, m.name),
+                                      el('small', {className: 'muted'}, `Merged into ${m.into}`),
+                                  ),
+                                  el('span'),
+                                  el('span'),
+                              ),
                           ),
                       ),
                   ),
@@ -147,16 +154,16 @@ function openAccount(ctx, account, kind = account?.kind ?? 'own') {
                 }),
                 'What it held before your first entry. Leave blank for zero.',
             ),
-            account
-                ? el(
-                      'div',
-                      {className: 'head-actions'},
-                      el('button', {type: 'button', onclick: () => archive()}, account.archived ? 'Restore' : 'Archive'),
-                      others.length ? el('button', {type: 'button', onclick: () => mergeInto()}, 'Merge into…') : null,
-                      el('button', {type: 'button', className: 'quiet danger', onclick: () => remove()}, 'Delete'),
-                  )
-                : null,
         ],
+        actions: account
+            ? [
+                  el('button', {type: 'button', className: 'quiet danger', onclick: () => remove()}, 'Delete'),
+                  el('button', {type: 'button', className: 'quiet', onclick: () => archive()}, account.archived ? 'Restore' : 'Archive'),
+                  others.length ? el('button', {type: 'button', className: 'quiet', onclick: () => mergeInto()}, 'Merge…') : null,
+                  el('button', {type: 'button', className: 'quiet', onclick: () => showEntries()}, 'Entries'),
+                  account.owes ? el('button', {type: 'button', className: 'quiet', onclick: () => settleUp()}, 'Settle up') : null,
+              ].filter((b) => b !== null)
+            : [],
         onSubmit: (data) =>
             ctx.perform(() =>
                 account
@@ -171,6 +178,14 @@ function openAccount(ctx, account, kind = account?.kind ?? 'own') {
             ctx.notify(error, true);
         }
     };
+    function showEntries() {
+        form.closest('dialog')?.close();
+        ctx.openLedger({account: account.id});
+    }
+    function settleUp() {
+        form.closest('dialog')?.close();
+        settle(ctx, account, account.owes === 'owes-you');
+    }
     async function archive() {
         form.closest('dialog').close();
         await report(ctx.perform(() => ctx.app.setAccountArchived(account.id, !account.archived)));

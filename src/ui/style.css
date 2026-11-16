@@ -52,6 +52,11 @@
 * {
     box-sizing: border-box;
 }
+/* Any display rule below would otherwise override the hidden attribute and show what should be hidden. */
+[hidden] {
+    /* biome-ignore lint/complexity/noImportantStyles: hidden must beat every display rule, whatever its specificity. */
+    display: none !important;
+}
 
 body {
     margin: 0;
@@ -327,6 +332,15 @@ nav.pills,
     gap: 8px 10px;
     align-items: center;
 }
+/* Flex items default to never shrinking below their content; let them, so a scrolling row scrolls
+   inside its card instead of widening the page. */
+.page-head > *,
+.head-actions > *,
+.filter-bar > *,
+.brand-row > * {
+    min-width: 0;
+    max-width: 100%;
+}
 .card-head {
     display: flex;
     flex-wrap: wrap;
@@ -435,12 +449,6 @@ ul.plain {
     list-style: none;
     margin: 0;
     padding: 0;
-}
-.no-time-list li {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 4px 0;
 }
 .pills[aria-label="Threshold"] {
     margin-bottom: 4px;
@@ -597,12 +605,6 @@ button.row.selected {
 .amount.income {
     color: var(--income);
 }
-.actions {
-    display: flex;
-    gap: 2px;
-    justify-content: flex-end;
-    align-items: center;
-}
 .dot {
     display: inline-block;
     width: 9px;
@@ -633,28 +635,7 @@ button.row.selected {
     border-color: var(--impulse);
 }
 
-/* Categories */
 /* Accounts and sync */
-.account-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-.account-list li {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    gap: 10px;
-    align-items: center;
-    padding: 6px 12px;
-    border: 1px solid var(--line);
-    border-radius: var(--r-inner);
-}
-.account-list li.archived strong {
-    color: var(--muted);
-}
 .sync-state {
     display: inline-flex;
     align-items: center;
@@ -681,33 +662,6 @@ button.row.selected {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
     gap: 12px;
-}
-
-.tiles-grid {
-    list-style: none;
-    margin: 10px 0 0;
-    padding: 0;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-    gap: 8px;
-}
-.tile.category {
-    flex-direction: row;
-    align-items: center;
-    gap: 10px;
-}
-.tile.category strong {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.tile.category button {
-    flex: none;
-}
-.tile.category.archived strong {
-    color: var(--muted);
 }
 
 /* Dialogs */
@@ -743,6 +697,11 @@ button.close {
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+.form > button.quiet {
+    align-self: flex-start;
+    padding-left: 0;
+    color: var(--accent);
 }
 .field {
     display: flex;
@@ -978,13 +937,6 @@ dialog .form-actions {
     .row .amount {
         grid-column: 3;
         grid-row: 1 / span 2;
-    }
-    .account-list li {
-        grid-template-columns: minmax(0, 1fr) auto;
-    }
-    .account-list .actions {
-        grid-column: 1 / -1;
-        justify-content: flex-start;
     }
 
     /* Wide charts scroll inside their card instead of squeezing 24 hours into a phone. */

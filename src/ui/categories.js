@@ -12,15 +12,23 @@ export async function render(container, ctx) {
     const archived = categories.filter((c) => c.archived);
     const merged = ctx.boot.merged.categories;
 
-    const tile = (c) =>
+    const row = (c) =>
         el(
             'li',
-            {className: `tile category ${c.archived ? 'archived' : ''}`},
-            el('span', {className: 'dot', style: `background:${c.color || 'var(--muted)'}`}),
-            el('strong', {}, c.name),
-            c.budget ? el('small', {className: 'muted'}, `budget ${c.budget}`) : null,
-            el('button', {className: 'quiet', onclick: () => openCategory(ctx, c)}, 'Edit'),
-            el('button', {className: 'quiet', onclick: () => ctx.openLedger({category: c.id})}, 'Entries'),
+            {},
+            el(
+                'button',
+                {className: 'row', onclick: () => openCategory(ctx, c)},
+                el('span', {className: 'dot', style: `background:${c.color || 'var(--muted)'}`}),
+                el(
+                    'span',
+                    {className: 'what'},
+                    el('strong', {}, c.name),
+                    c.budget ? el('small', {className: 'muted'}, `Budget ${c.budget} a month`) : null,
+                ),
+                el('span'),
+                el('span'),
+            ),
         );
 
     fill(
@@ -41,7 +49,7 @@ export async function render(container, ctx) {
                       {className: 'muted'},
                       'No categories yet. Entries without one show as Uncategorized; add categories here or while adding an entry.',
                   )
-                : el('ul', {className: 'tiles-grid'}, active.map(tile)),
+                : el('ul', {className: 'card rows'}, active.map(row)),
         ),
         archived.length === 0
             ? null
@@ -50,7 +58,7 @@ export async function render(container, ctx) {
                   {className: 'card'},
                   el('h2', {}, `Archived (${archived.length})`),
                   el('p', {className: 'muted'}, 'These leave the picker but stay on existing entries.'),
-                  el('ul', {className: 'tiles-grid'}, archived.map(tile)),
+                  el('ul', {className: 'card rows'}, archived.map(row)),
               ),
         merged.length === 0
             ? null
@@ -61,14 +69,36 @@ export async function render(container, ctx) {
                   el('p', {className: 'muted'}, 'Their entries show under the category they were merged into. Undo puts them back.'),
                   el(
                       'ul',
-                      {className: 'plain account-list'},
+                      {className: 'card rows'},
                       merged.map((m) =>
                           el(
                               'li',
                               {},
-                              el('span', {}, `${m.name} → ${m.into}`),
-                              el('span'),
-                              el('button', {className: 'quiet', onclick: () => act(() => ctx.app.unmergeCategory(m.id))}, 'Undo'),
+                              el(
+                                  'button',
+                                  {
+                                      className: 'row',
+                                      onclick: async () => {
+                                          if (
+                                              await confirmDialog(
+                                                  `Undo the merge of ${m.name} into ${m.into}? Its entries go back to ${m.name}.`,
+                                                  'Undo merge',
+                                              )
+                                          ) {
+                                              await act(() => ctx.app.unmergeCategory(m.id));
+                                          }
+                                      },
+                                  },
+                                  el('span'),
+                                  el(
+                                      'span',
+                                      {className: 'what'},
+                                      el('strong', {}, m.name),
+                                      el('small', {className: 'muted'}, `Merged into ${m.into}`),
+                                  ),
+                                  el('span'),
+                                  el('span'),
+                              ),
                           ),
                       ),
                   ),
@@ -83,7 +113,7 @@ function budgetsCard(ctx) {
             'article',
             {className: 'card'},
             el('h2', {}, 'Budgets'),
-            el('p', {className: 'muted'}, 'Give a category a monthly budget (Edit) to track it here and on the dashboard.'),
+            el('p', {className: 'muted'}, 'Open a category to give it a monthly budget; it is then tracked here and on the dashboard.'),
         );
     }
     return el('article', {className: 'card'}, budgetSummary(b));
@@ -146,16 +176,15 @@ function openCategory(ctx, category) {
                       'Leave blank for no budget.',
                   )
                 : null,
-            category
-                ? el(
-                      'div',
-                      {className: 'head-actions'},
-                      el('button', {type: 'button', onclick: () => archive()}, category.archived ? 'Restore' : 'Archive'),
-                      others.length ? el('button', {type: 'button', onclick: () => mergeInto()}, 'Merge into…') : null,
-                      el('button', {type: 'button', className: 'quiet danger', onclick: () => remove()}, 'Delete'),
-                  )
-                : null,
         ],
+        actions: category
+            ? [
+                  el('button', {type: 'button', className: 'quiet danger', onclick: () => remove()}, 'Delete'),
+                  el('button', {type: 'button', className: 'quiet', onclick: () => archive()}, category.archived ? 'Restore' : 'Archive'),
+                  others.length ? el('button', {type: 'button', className: 'quiet', onclick: () => mergeInto()}, 'Merge…') : null,
+                  el('button', {type: 'button', className: 'quiet', onclick: () => showEntries()}, 'Entries'),
+              ].filter((b) => b !== null)
+            : [],
         onSubmit: (data) =>
             ctx.perform(async () => {
                 if (!category) {
@@ -167,6 +196,10 @@ function openCategory(ctx, category) {
             }),
     });
 
+    function showEntries() {
+        form.closest('dialog')?.close();
+        ctx.openLedger({category: category.id});
+    }
     async function archive() {
         form.closest('dialog').close();
         await report(ctx.perform(() => ctx.app.setCategoryArchived(category.id, !category.archived)));
