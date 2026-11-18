@@ -31,6 +31,12 @@
     --t-fast: 120ms;
     --t-base: 200ms;
     --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --t-spring: 480ms;
+    /* A damped spring that overshoots by about 4% and settles. */
+    --spring: linear(0, 0.09, 0.281, 0.494, 0.682, 0.828, 0.929, 0.992, 1.025, 1.037, 1.037, 1.032, 1.024, 1.016, 1.009, 1.004, 1.001, 1);
+
+    /* Glass is only for the top bar and the phone tab bar, where the page scrolls underneath. */
+    --glass-blur: saturate(180%) blur(20px);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -265,6 +271,8 @@ input[type="checkbox"] {
 }
 
 .pills {
+    position: relative;
+    isolation: isolate;
     display: inline-flex;
     flex-wrap: nowrap;
     gap: 2px;
@@ -283,7 +291,7 @@ input[type="checkbox"] {
     white-space: nowrap;
 }
 .pills button.active {
-    background: var(--tint);
+    background: var(--tone, var(--tint));
     color: var(--accent);
     font-weight: 600;
 }
@@ -300,28 +308,44 @@ input[type="checkbox"] {
     padding: 5px 12px;
 }
 .pills.wide button.active.expense {
-    background: var(--expense);
+    --tone: var(--expense);
     color: #fff;
 }
 .pills.wide button.active.income {
-    background: var(--income);
+    --tone: var(--income);
     color: #fff;
 }
 .pills.wide button.active.need {
-    background: var(--need);
+    --tone: var(--need);
     color: #fff;
 }
 .pills.wide button.active.want {
-    background: var(--want);
+    --tone: var(--want);
     color: #fff;
 }
 .pills.wide button.active.impulse {
-    background: var(--impulse);
+    --tone: var(--impulse);
     color: #fff;
 }
 .pills.wide button.active.transfer {
-    background: var(--accent);
+    --tone: var(--accent);
     color: var(--on-accent);
+}
+/* One highlight per group that slides to the active pill; dom.js measures where it goes. */
+.pills.sliding::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: -1;
+    width: var(--pill-w);
+    height: var(--pill-h);
+    transform: translate(var(--pill-x), var(--pill-y));
+    border-radius: 999px;
+    background: var(--pill-tone);
+}
+.pills.sliding > button.active {
+    background: transparent;
 }
 nav.pills,
 .pills.scroll {
@@ -1086,11 +1110,11 @@ dialog .form-actions {
 }
 .pills button.active,
 button.active {
-    background: var(--tint);
+    background: var(--tone, var(--tint));
     color: var(--accent);
 }
 .pills.wide button.active.refund {
-    background: var(--want);
+    --tone: var(--want);
     color: #fff;
 }
 
@@ -1106,6 +1130,23 @@ button.active {
     }
 }
 
+@media (prefers-reduced-transparency: no-preference) {
+    @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+        .topbar {
+            background: color-mix(in srgb, var(--bg) 72%, transparent);
+            -webkit-backdrop-filter: var(--glass-blur);
+            backdrop-filter: var(--glass-blur);
+        }
+        @media (max-width: 700px) {
+            nav.tabs {
+                background: color-mix(in srgb, var(--surface) 72%, transparent);
+                -webkit-backdrop-filter: var(--glass-blur);
+                backdrop-filter: var(--glass-blur);
+            }
+        }
+    }
+}
+
 @media (prefers-reduced-motion: no-preference) {
     button,
     input,
@@ -1117,10 +1158,18 @@ button.active {
             border-color var(--t-fast) var(--ease),
             color var(--t-fast) var(--ease),
             box-shadow var(--t-fast) var(--ease),
-            transform var(--t-fast) var(--ease);
+            transform var(--t-spring) var(--spring);
     }
     button:not(.row):active:not(:disabled) {
-        transform: scale(0.96);
+        transform: scale(0.95);
+        transition-duration: var(--t-fast);
+    }
+    .pills.sliding.ready::before {
+        transition:
+            transform var(--t-spring) var(--spring),
+            width var(--t-spring) var(--spring),
+            height var(--t-spring) var(--spring),
+            background-color var(--t-base) var(--ease);
     }
     .date-popover {
         animation: rise-in var(--t-base) var(--ease);
@@ -1129,11 +1178,12 @@ button.active {
         animation: fade-in var(--t-base) var(--ease);
     }
 
-    /* Dialogs fade and lift in, and play the same in reverse on close; overlay and display keep them
-       on screen until the exit finishes, where the browser supports it. */
+    /* Dialogs spring open from where you tapped (--origin, set by dom.js) and ease away on close;
+       overlay and display keep them on screen until the exit finishes, where the browser supports it. */
     dialog {
         opacity: 0;
-        transform: translateY(8px) scale(0.98);
+        transform: scale(0.9);
+        transform-origin: var(--origin, center);
         transition:
             opacity var(--t-base) var(--ease),
             transform var(--t-base) var(--ease),
@@ -1143,6 +1193,11 @@ button.active {
     dialog[open] {
         opacity: 1;
         transform: none;
+        transition:
+            opacity var(--t-base) var(--ease),
+            transform var(--t-spring) var(--spring),
+            overlay var(--t-spring) allow-discrete,
+            display var(--t-spring) allow-discrete;
     }
     dialog::backdrop {
         background-color: transparent;
@@ -1157,7 +1212,7 @@ button.active {
     @starting-style {
         dialog[open] {
             opacity: 0;
-            transform: translateY(8px) scale(0.98);
+            transform: scale(0.9);
         }
         dialog[open]::backdrop {
             background-color: transparent;

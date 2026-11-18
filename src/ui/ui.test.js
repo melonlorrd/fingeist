@@ -27,6 +27,7 @@ const GLOBALS = [
     'getComputedStyle',
     'matchMedia',
     'ResizeObserver',
+    'MutationObserver',
     'requestAnimationFrame',
 ];
 const saved = {};
@@ -135,12 +136,16 @@ async function visitEverything(label) {
         await click(type, dialog());
         assertClean(`${label}: add dialog as ${type}`);
     }
-    await click('Itemise', dialog());
-    const itemAmounts = /** @type {HTMLInputElement[]} */ ([...dialog().querySelectorAll('input[aria-label="Item amount"]')]);
-    assert.equal(itemAmounts.length, 2, 'an empty bill starts with two items');
-    itemAmounts[0].value = '720';
-    itemAmounts[1].value = '-40';
-    itemAmounts[1].dispatchEvent(new Event('input'));
+    const itemAmounts = () => /** @type {HTMLInputElement[]} */ ([...dialog().querySelectorAll('input[aria-label="Item amount"]')]);
+    assert.equal(itemAmounts().length, 1, 'a new entry starts with one item');
+    assert.ok(
+        buttons('Remove', dialog()).every((b) => b.hidden),
+        'the only item cannot be removed',
+    );
+    await click('Item', dialog());
+    itemAmounts()[0].value = '720';
+    itemAmounts()[1].value = '-40';
+    itemAmounts()[1].dispatchEvent(new Event('input'));
     const total = /** @type {HTMLInputElement} */ (dialog().querySelector('input[name="amount"]'));
     assert.deepEqual([total.value, total.readOnly], ['680.00', true]);
     await click('Share with a person', dialog());
@@ -233,6 +238,12 @@ test('every screen and dialog with a full book', async () => {
     order.click();
     await settle();
     assert.equal(dialog().querySelectorAll('[aria-label="Part intent"]').length, 3);
+    assert.equal(dialog().querySelector('[aria-label="Intent"]'), null, 'intent is only ever per item');
+    assert.deepEqual(
+        [...dialog().querySelectorAll('[aria-label="Part intent"] .active')].map((b) => b.textContent),
+        ['Need', 'Want', 'Want'],
+        "items without an intent show the entry's",
+    );
     assertClean('full: split order dialog');
     await click('Income', dialog());
     assert.ok([...dialog().querySelectorAll('[aria-label="Part intent"]')].every((g) => /** @type {HTMLElement} */ (g).hidden));

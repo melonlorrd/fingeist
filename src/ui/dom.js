@@ -225,10 +225,41 @@ export function closeDialog() {
     dialogElement().close();
 }
 
+let lastTap = null;
+
+/** Remembers where the last tap or click landed, so a dialog it opens can grow from there. */
+export function rememberTap(event) {
+    lastTap = {x: event.clientX, y: event.clientY, at: event.timeStamp};
+}
+
 export function openDialog(...content) {
     const dialog = dialogElement();
     dialog.replaceChildren(...content);
     dialog.showModal();
+    const rect = dialog.getBoundingClientRect();
+    const recent = lastTap && performance.now() - lastTap.at < 1000;
+    dialog.style.setProperty('--origin', recent ? `${lastTap.x - rect.left}px ${lastTap.y - rect.top}px` : 'center');
+}
+
+/** Moves each pill group's sliding highlight under its active pill, in the active pill's colour. */
+export function placePillHighlights() {
+    for (const group of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.pills'))) {
+        const active = /** @type {HTMLElement | null} */ (group.querySelector(':scope > button.active'));
+        if (!active || active.offsetWidth === 0) {
+            group.classList.remove('sliding', 'ready');
+            continue;
+        }
+        group.style.setProperty('--pill-x', `${active.offsetLeft}px`);
+        group.style.setProperty('--pill-y', `${active.offsetTop}px`);
+        group.style.setProperty('--pill-w', `${active.offsetWidth}px`);
+        group.style.setProperty('--pill-h', `${active.offsetHeight}px`);
+        group.style.setProperty('--pill-tone', getComputedStyle(active).getPropertyValue('--tone').trim() || 'var(--tint)');
+        if (!group.classList.contains('sliding')) {
+            group.classList.add('sliding');
+            // Place it before turning the transition on, so a new group doesn't slide in from the corner.
+            requestAnimationFrame(() => group.classList.add('ready'));
+        }
+    }
 }
 
 /**
@@ -270,6 +301,6 @@ export function formDialog({title, fields, submitLabel = 'Save', actions = [], o
         }
     });
     openDialog(form);
-    form.querySelector('input:not([type=hidden]), select')?.focus();
+    form.querySelector('input:not([type=hidden]):not([readonly]), select')?.focus();
     return form;
 }

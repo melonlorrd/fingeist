@@ -1,7 +1,7 @@
 // The add/edit dialog for an expense, income, refund or transfer, and the actions on one entry.
 
 import {closeDialog, datePicker, el, field, formDialog, openDialog} from './dom.js';
-import {accountPicker, categoryPicker, INTENTS, pills, splitEditor} from './pickers.js';
+import {accountPicker, categoryPicker, pills, splitEditor} from './pickers.js';
 
 const TYPES = [
     ['expense', 'Expense'],
@@ -52,20 +52,25 @@ async function deleteEntry(ctx, id) {
     });
 }
 
+// The items to show: an ordinary entry is one item with its category and intent.
+function itemsOf(entry) {
+    if (!entry || entry.type === 'transfer') {
+        return [];
+    }
+    if (entry.splits.length > 0) {
+        return entry.splits.map((part) => (part.person ? part : {...part, intent: part.intent || entry.intent}));
+    }
+    return [{category: entry.category, amount: entry.amount, intent: entry.intent, note: ''}];
+}
+
 /** The add/edit dialog. entry is null for a new one; an entry without an id is a copy. */
 export function openEntryForm(ctx, entry) {
     const isNew = !entry?.id;
     const now = ctx.boot.now;
     const initial = entry?.date ? {date: entry.date, clock: entry.clock} : {date: now.date, clock: now.clock};
     let type = entry?.type ?? 'expense';
-    let intent = entry?.intent ?? '';
-    let splitting = (entry?.splits ?? []).length > 0;
 
     const typePills = el('div', {className: 'pills wide', role: 'radiogroup', 'aria-label': 'Type'});
-    const intentButtons = el('div', {className: 'pills wide', role: 'radiogroup', 'aria-label': 'Intent'});
-    const intentField = el('div', {className: 'field'}, el('span', {}, 'Habit intent'), intentButtons);
-    const category = categoryPicker(ctx, entry?.category ?? '');
-    const categoryField = field('Category', category.node);
     const payer = accountPicker(ctx, 'Account', entry?.account ?? ctx.boot.lastAccount);
     const accountField = field('Account (who paid)', payer.node);
     const from = accountPicker(ctx, 'From account', entry?.from ?? '');
@@ -81,23 +86,14 @@ export function openEntryForm(ctx, entry) {
         placeholder: '0.00',
         'aria-label': 'Amount',
     });
+    const sumHint = el('small', {className: 'muted'}, 'You can type a sum, e.g. 720-40 or 120+45.50.');
     const showTotal = () => {
-        if (splitting) {
+        if (type !== 'transfer') {
             amountInput.value = ctx.app.itemsTotal(split.amounts());
         }
     };
-    const split = splitEditor(ctx, entry?.splits ?? [], showTotal);
-    const splitToggle = el('button', {
-        type: 'button',
-        className: 'quiet',
-        onclick: () => {
-            splitting = !splitting;
-            if (splitting) {
-                split.begin();
-            }
-            showType();
-        },
-    });
+    const split = splitEditor(ctx, itemsOf(entry), showTotal);
+    split.begin();
 
     const suggestions = ctx.app.merchantSuggestions();
     const merchantList = el(
@@ -112,7 +108,7 @@ export function openEntryForm(ctx, entry) {
         onchange: () => {
             const hit = suggestions.find((s) => s.merchant.toLowerCase() === merchant.value.trim().toLowerCase());
             if (hit && isNew) {
-                category.set(hit.category);
+                split.suggestCategory(hit.category);
                 payer.set(hit.account);
             }
         },
@@ -135,46 +131,31 @@ export function openEntryForm(ctx, entry) {
           )
         : null;
 
-    const showIntent = () =>
-        pills(intentButtons, INTENTS, intent, (value) => {
-            intent = intent === value ? '' : value;
-            showIntent();
-        });
     function showType() {
         pills(typePills, TYPES, type, (value) => {
             type = value;
             showType();
         });
         const transfer = type === 'transfer';
-        const canSplit = type === 'expense' || type === 'income';
-        splitting &&= canSplit;
-        intentField.hidden = type !== 'expense';
         split.showIntents(type === 'expense');
-        accountField.hidden = merchantField.hidden = tagsField.hidden = transfer;
-        categoryField.hidden = transfer || splitting;
-        split.node.hidden = !splitting;
-        splitToggle.hidden = !canSplit;
-        splitToggle.textContent = splitting ? "Don't itemise" : 'Itemise';
-        amountInput.readOnly = splitting;
+        accountField.hidden = merchantField.hidden = tagsField.hidden = split.node.hidden = transfer;
+        sumHint.hidden = !transfer;
+        amountInput.readOnly = !transfer;
         showTotal();
         fromField.hidden = toField.hidden = !transfer;
     }
     showType();
-    showIntent();
 
     formDialog({
         title: isNew ? 'Add' : 'Edit',
         fields: [
             typePills,
             el('label', {className: 'amount-input'}, el('span', {}, ctx.boot.currency), amountInput),
-            el('small', {className: 'muted'}, 'You can type a sum, e.g. 720-40 or 120+45.50.'),
+            sumHint,
             accountField,
             fromField,
             toField,
-            categoryField,
-            splitToggle,
             split.node,
-            intentField,
             merchantField,
             merchantList,
             field('Note', el('input', {name: 'note', value: entry?.note ?? '', autocomplete: 'off'})),
@@ -213,12 +194,12 @@ export function openEntryForm(ctx, entry) {
                     account: payer.value(),
                     from: from.value(),
                     to: to.value(),
-                    category: category.value(),
-                    splits: splitting ? split.value() : [],
+                    category: '',
+                    splits: type === 'transfer' ? [] : split.value(),
                     merchant: data.get('merchant'),
                     note: data.get('note'),
                     tags: data.get('tags'),
-                    intent: type === 'expense' ? intent : '',
+                    intent: '',
                     date: data.get('date'),
                     clock: data.get('clock'),
                     originalTime: entry?.time ?? '',
@@ -274,13 +255,18 @@ export function openBulkCategory(ctx, ids, done) {
     const picker = categoryPicker(ctx, '');
     formDialog({
         title: `Set the category of ${ids.length} entries`,
-        fields: [field('Category', picker.node), el('p', {className: 'muted'}, 'Split entries keep their parts and are skipped.')],
+        fields: [
+            field('Category', picker.node),
+            el('p', {className: 'muted'}, 'Entries with several items keep their own categories and are skipped.'),
+        ],
         submitLabel: 'Set category',
         onSubmit: () =>
             ctx.perform(async () => {
                 const result = await ctx.app.setCategory(ids, picker.value());
                 done();
-                ctx.notify(`Changed ${result.changed}${result.skipped ? `, skipped ${result.skipped} split or deleted` : ''}.`);
+                ctx.notify(
+                    `Changed ${result.changed}${result.skipped ? `, skipped ${result.skipped} with several items or deleted` : ''}.`,
+                );
             }),
     });
 }

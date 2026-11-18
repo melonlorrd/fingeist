@@ -238,6 +238,54 @@ test('an itemised bill: named items with their own intent, a fee and a discount,
     );
 });
 
+test('the form always sends items: one unnamed item is an ordinary entry, a named one keeps its name', async () => {
+    const {app} = await withProject();
+    await app.saveEntry({
+        ...expense,
+        amount: '',
+        category: '',
+        intent: '',
+        splits: [{category: 'new:Food', amount: '120+5', intent: 'need', note: ' '}],
+    });
+    await app.saveEntry({
+        ...expense,
+        amount: '',
+        category: '',
+        intent: '',
+        merchant: 'Shop',
+        splits: [{category: 'new:Home', amount: '99', intent: 'need', note: 'Nail clipper'}],
+    });
+    await app.saveEntry({
+        ...expense,
+        type: 'income',
+        amount: '',
+        category: '',
+        intent: '',
+        merchant: 'Pay',
+        splits: [{category: '', amount: '500', intent: 'want'}],
+    });
+    const rows = app.ledger().days[0].rows;
+    const [pay, shop, market] = ['Pay', 'Shop', 'Market'].map((name) => rows.find((r) => r.merchant === name));
+    assert.deepEqual(
+        [market.category, market.intents, market.amount.text, app.getEntry(market.id).splits, app.getEntry(market.id).intent],
+        ['Food', ['need'], '-₹125.00', [], 'need'],
+    );
+    assert.deepEqual([shop.category, shop.intents, app.getEntry(shop.id).splits.map((s) => s.note)], ['Home', ['need'], ['Nail clipper']]);
+    assert.deepEqual([pay.amount.text, pay.intents, app.getEntry(pay.id).intent], ['₹500.00', [], '']);
+    await assert.rejects(app.saveEntry({...expense, splits: [{category: '', amount: '-5'}]}), /more than zero/);
+    await assert.rejects(
+        app.saveEntry({
+            ...expense,
+            type: 'refund',
+            splits: [
+                {category: '', amount: '5'},
+                {person: 'new:Rahul', amount: '5'},
+            ],
+        }),
+        /shared with a person/,
+    );
+});
+
 test('transfers move both balances and stay out of income and spending', async () => {
     const {app} = await withProject();
     await app.createAccount({name: 'Bank', opening: '1000'});
@@ -331,7 +379,7 @@ test('accounts: rename, merge, and delete only when unused', async () => {
     assert.equal(app.boot().accounts[0].archived, true);
 });
 
-test('bulk recategorise skips split transactions', async () => {
+test('bulk recategorise skips entries with several items and changes one-item ones', async () => {
     const {app} = await withProject();
     await app.saveEntry(expense);
     await app.saveEntry({...expense, merchant: 'Bakery'});
@@ -343,9 +391,12 @@ test('bulk recategorise skips split transactions', async () => {
             {category: '', amount: '5'},
         ],
     });
+    await app.saveEntry({...expense, merchant: 'Cafe', splits: [{category: '', amount: '7', note: 'Tea'}]});
     const all = app.ledger().days.flatMap((d) => d.rows.map((r) => r.id));
-    assert.deepEqual(await app.setCategory(all, 'new:Treats'), {changed: 2, skipped: 1});
-    assert.equal(app.ledger({category: ids(app).Treats}).count, 2);
+    assert.deepEqual(await app.setCategory(all, 'new:Treats'), {changed: 3, skipped: 1});
+    assert.equal(app.ledger({category: ids(app).Treats}).count, 3);
+    const cafe = app.ledger({search: 'cafe'}).days[0].rows[0];
+    assert.deepEqual(app.getEntry(cafe.id).splits, [{category: ids(app).Treats, person: '', amount: '7.00', intent: '', note: 'Tea'}]);
 });
 
 test('merchant suggestions remember the latest category and account', async () => {

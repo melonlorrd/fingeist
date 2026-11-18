@@ -146,13 +146,19 @@ export function splitEditor(ctx, parts, onChange) {
     let intentsShown = true;
     let ready = false;
     const changed = () => ready && onChange();
+    // A bill always keeps at least one item.
+    const showRemoves = () => {
+        for (const p of entries) {
+            p.removeButton.hidden = entries.length === 1;
+        }
+    };
     const addPart = (part = {}, person = false) => {
         const target = person
             ? accountPicker(ctx, 'Person', part.person ?? '', {kinds: ['person'], newKinds: ['person']})
             : categoryPicker(ctx, part.category ?? '');
         const name = el('input', {
             value: part.note ?? '',
-            placeholder: person ? 'What it was for' : 'Item, e.g. Nail clipper',
+            placeholder: person ? 'For' : 'Item',
             autocomplete: 'off',
             'aria-label': 'Item name',
         });
@@ -165,7 +171,7 @@ export function splitEditor(ctx, parts, onChange) {
             oninput: () => changed(),
         });
         const intentButtons = el('div', {className: 'pills wide', role: 'radiogroup', 'aria-label': 'Part intent'});
-        const entry = {person, target, name, amount, intent: part.intent ?? '', intentButtons};
+        const entry = {person, target, name, amount, intent: part.intent ?? '', intentButtons, removeButton: null};
         const showIntent = () =>
             pills(intentButtons, INTENTS, entry.intent, (value) => {
                 entry.intent = entry.intent === value ? '' : value;
@@ -176,23 +182,21 @@ export function splitEditor(ctx, parts, onChange) {
         const remove = () => {
             row.remove();
             entries.splice(entries.indexOf(entry), 1);
+            showRemoves();
             changed();
         };
+        entry.removeButton = el('button', {type: 'button', className: 'quiet danger', onclick: remove}, 'Remove');
         const row = el(
             'div',
             {className: 'split-part'},
-            el(
-                'div',
-                {className: 'dialog-head'},
-                el('small', {className: 'muted'}, person ? 'Their share' : 'Item'),
-                el('button', {type: 'button', className: 'quiet danger', onclick: remove}, 'Remove'),
-            ),
+            el('div', {className: 'dialog-head'}, el('small', {className: 'muted'}, person ? 'Their share' : 'Item'), entry.removeButton),
             el('div', {className: 'balance-row'}, name, amount),
             target.node,
             person ? null : intentButtons,
         );
         entries.push(entry);
         rows.append(row);
+        showRemoves();
         changed();
     };
     for (const part of parts) {
@@ -206,7 +210,7 @@ export function splitEditor(ctx, parts, onChange) {
         el(
             'small',
             {className: 'muted'},
-            "The amount is the total of the items. Fees are items too; a discount is a negative item, like -40. A person's share is money they owe you (or you them, for income). An item with no intent uses the one below.",
+            "The amount is the total of the items. Fees are items too; a discount is a negative item, like -40. A person's share is money they owe you (or you them, for income). Amounts can be sums, like 720-40.",
         ),
         rows,
         el(
@@ -219,11 +223,16 @@ export function splitEditor(ctx, parts, onChange) {
     return {
         node,
         amounts: () => entries.map((p) => p.amount.value),
-        /** Starts an empty bill with two blank items. */
+        /** Starts an empty bill with one blank item. */
         begin() {
             if (entries.length === 0) {
                 addPart({});
-                addPart({});
+            }
+        },
+        /** Fills in a merchant's usual category while the bill has one item. */
+        suggestCategory(id) {
+            if (entries.length === 1 && !entries[0].person) {
+                entries[0].target.set(id);
             }
         },
         value: () =>

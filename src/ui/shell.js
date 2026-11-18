@@ -1,7 +1,7 @@
 import * as accounts from './accounts.js';
 import * as categories from './categories.js';
 import * as dashboard from './dashboard.js';
-import {dialogElement, el, fill} from './dom.js';
+import {dialogElement, el, fill, placePillHighlights, rememberTap} from './dom.js';
 import {openEntryForm} from './entry-form.js';
 import {icon} from './icons.js';
 import * as ledger from './ledger.js';
@@ -310,6 +310,26 @@ export function startShell(app) {
             syncNow();
         }
     }, SYNC_EVERY_MS);
+
+    // Screens redraw their pills freely, so one observer keeps every sliding highlight in place.
+    let placing = false;
+    const placeSoon = () => {
+        if (!placing) {
+            placing = true;
+            requestAnimationFrame(() => {
+                placing = false;
+                placePillHighlights();
+            });
+        }
+    };
+    new MutationObserver(placeSoon).observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['class', 'hidden'],
+    });
+    window.addEventListener('resize', placeSoon);
+    document.addEventListener('pointerdown', rememberTap, true);
 
     refresh().then(syncNow);
 }

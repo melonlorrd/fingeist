@@ -79,8 +79,8 @@ function parseSplits(value, total, decimals) {
     if (value === undefined || (Array.isArray(value) && value.length === 0)) {
         return [];
     }
-    if (!Array.isArray(value) || value.length < 2) {
-        throw new Error('a split needs at least two parts');
+    if (!Array.isArray(value)) {
+        throw new Error('splits must be a list');
     }
     const parts = value.map((part) => parsePart(part, decimals));
     const sum = parts.reduce((s, p) => s + p.amount, 0n);
@@ -102,8 +102,8 @@ export function parseTxn(id, data, decimals) {
     const intent = parseIntent(data.intent);
     const refund = amount > 0n && bool(data.refund);
     const splits = parseSplits(data.splits, amount, decimals).map((part) => (amount < 0n ? part : {...part, intent: ''}));
-    if (refund && splits.length > 0) {
-        throw new Error('a refund cannot be split');
+    if (refund && splits.some((part) => part.person)) {
+        throw new Error('a refund cannot be shared with a person');
     }
     return {
         id,

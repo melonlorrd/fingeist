@@ -220,6 +220,35 @@ test('split parts carry their own intent, fall back to the entry, and may be a d
     );
 });
 
+test('a bill may have one item, and a refund may have items of its own', () => {
+    const b = book(
+        cash,
+        food,
+        put('txn', 'one', {...coffee, category: '', splits: [{category: 'food', amount: '45.50', intent: 'need', note: 'Lunch'}]}),
+        put('txn', 'back', {
+            ...coffee,
+            amount: '30.00',
+            refund: true,
+            category: '',
+            splits: [
+                {category: 'food', amount: '20.00', note: 'Cold coffee'},
+                {category: '', amount: '10.00', note: 'Fee'},
+            ],
+        }),
+    );
+    assert.deepEqual(b.problems, []);
+    assert.deepEqual(
+        b.txns.map((t) => t.lines.map((l) => [l.kind, l.category, l.item, l.intent, l.spend])),
+        [
+            [['expense', 'food', 'Lunch', 'need', 4550n]],
+            [
+                ['refund', 'food', 'Cold coffee', '', -2000n],
+                ['refund', '', 'Fee', '', -1000n],
+            ],
+        ],
+    );
+});
+
 test('split parts that break the rules are reported', async (t) => {
     const cases = [
         [
@@ -271,7 +300,12 @@ test('malformed records are reported, left out, and never block the rest', () =>
         put('txn', 'no-account', {...coffee, account: ' '}),
         put('txn', 'bad-intent', {...coffee, intent: 'hobby'}),
         put('txn', 'bad-split', {...coffee, splits: [{amount: '10.00'}, {amount: '10.00'}]}),
-        put('txn', 'split-refund', {...coffee, amount: '20.00', refund: true, splits: [{amount: '10.00'}, {amount: '10.00'}]}),
+        put('txn', 'split-refund', {
+            ...coffee,
+            amount: '20.00',
+            refund: true,
+            splits: [{amount: '10.00'}, {person: 'cash', amount: '10.00'}],
+        }),
         put('transfer', 'same', {time: '2026-11-07', amount: '1.00', from: 'cash', to: 'cash'}),
         put('category', 'odd', {name: 'Odd', color: 'red'}),
         put('account', 'kindless', {name: 'X', kind: 'company'}),

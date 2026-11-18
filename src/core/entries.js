@@ -65,18 +65,20 @@ export function entriesApi(ws) {
             });
         }
         const amount = splits.length > 0 ? billTotal(splits) : positiveAmount(input.amount);
+        // One unnamed item for yourself is an ordinary entry, so most entries keep the simplest record.
+        const plain = splits.length === 1 && !splits[0].person && !splits[0].note.trim();
         const fields = txnFields(
             {
                 time,
-                splits,
+                splits: plain ? [] : splits,
                 amount: input.type === 'expense' ? -amount : amount,
                 refund: input.type === 'refund',
                 account: await accountRef(ws, input.account),
-                category: splits.length > 0 ? '' : await categoryRef(ws, input.category),
+                category: plain ? splits[0].category : splits.length > 0 ? '' : await categoryRef(ws, input.category),
                 merchant: input.merchant,
                 note: input.note,
                 tags: input.tags,
-                intent: input.intent,
+                intent: plain ? splits[0].intent : input.intent,
             },
             ws.decimals(),
         );
@@ -164,15 +166,22 @@ export function entriesApi(ws) {
 
         undoDelete: ({kind, id, fields}) => ws.put(kind, id, fields),
 
-        /** Sets the category of many transactions; split ones are skipped. Returns how many changed and skipped. */
+        /** Sets the category of many transactions; ones with several items are skipped. Returns how many changed and skipped. */
         async setCategory(ids, category) {
             const target = await categoryRef(ws, category);
             let changed = 0;
             let skipped = 0;
             for (const id of ids) {
                 const fields = liveRecord(ws.book.winners, 'txn', id);
-                if (!fields || (fields.splits ?? []).length > 0) {
+                const parts = fields?.splits ?? [];
+                const oneItem = parts.length === 1 && !parts[0].person;
+                if (!fields || (parts.length > 0 && !oneItem)) {
                     skipped++;
+                } else if (oneItem) {
+                    if (parts[0].category !== target) {
+                        await ws.put('txn', id, {splits: [{...parts[0], category: target}]});
+                        changed++;
+                    }
                 } else if (fields.category !== target) {
                     await ws.put('txn', id, {category: target});
                     changed++;
@@ -181,7 +190,6 @@ export function entriesApi(ws) {
             return {changed, skipped};
         },
 
-        /** Merchants used before, most used first, with the category and account of their latest use. */
         /** The running total of an itemised bill as typed, e.g. "814.00", or '' while a line can't be read. */
         itemsTotal(amounts) {
             try {
@@ -194,6 +202,7 @@ export function entriesApi(ws) {
             }
         },
 
+        /** Merchants used before, most used first, with the category and account of their latest use. */
         merchantSuggestions() {
             /** @type {Map<string, {merchant: string, category: string, account: string, count: number}>} */
             const latest = new Map();
