@@ -2,6 +2,8 @@ import {cycleOf} from '../time.js';
 import {accountName, amountOf, byText, categoryColor, categoryName, UNCATEGORIZED} from './amount.js';
 import {transferEffect} from './totals.js';
 
+const isIntent = (filter) => ['need', 'want', 'impulse'].includes(filter);
+
 function rowsOf(txns, transfers) {
     return [...txns.map((t) => ({kind: 'txn', item: t})), ...transfers.map((x) => ({kind: 'transfer', item: x}))];
 }
@@ -37,7 +39,7 @@ function matches(row, project, q) {
     if (['expense', 'income', 'refund'].includes(filter) && !item.lines.some((l) => l.kind === filter)) {
         return false;
     }
-    if (['need', 'want', 'impulse'].includes(filter) && item.intent !== filter) {
+    if (isIntent(filter) && (kind === 'transfer' || !item.lines.some((l) => l.intent === filter))) {
         return false;
     }
     const needle = (q.search ?? '').trim().toLowerCase();
@@ -53,6 +55,7 @@ function searchText({kind, item}, project) {
                   accountName(project, item.account),
                   ...item.tags,
                   ...item.lines.map((l) => (l.person ? accountName(project, l.person) : categoryName(project, l.category))),
+                  ...item.lines.map((l) => l.item),
               ]
             : [item.note, accountName(project, item.from), accountName(project, item.to)];
     return parts.join('\n').toLowerCase();
@@ -92,8 +95,8 @@ function txnView(t, project) {
         merchant: t.merchant,
         note: t.note,
         tags: t.tags,
-        intent: t.intent,
-        category: single ? categoryName(project, single.category) : 'Split',
+        intents: [...new Set(t.lines.map((l) => l.intent).filter(Boolean))],
+        category: single ? categoryName(project, single.category) : `${t.splits.length} items`,
         categoryColor: single ? categoryColor(project, single.category) : '',
         account: payer?.kind === 'person' ? `Paid by ${payer.name}` : accountName(project, t.account),
         people: shares,
@@ -114,7 +117,7 @@ function transferView(x, project, accounts) {
         merchant: '',
         note: x.note,
         tags: [],
-        intent: '',
+        intents: [],
         category: '',
         categoryColor: '',
         account: `${accountName(project, x.from)} → ${accountName(project, x.to)}`,
@@ -159,7 +162,8 @@ export function ledgerView(txns, transfers, project, q = {}) {
     const lines = matching
         .filter((r) => r.kind === 'txn')
         .flatMap((r) => r.item.lines)
-        .filter((l) => !q.category || categoryMatches(l, q.category));
+        .filter((l) => !q.category || categoryMatches(l, q.category))
+        .filter((l) => !isIntent(q.filter) || l.intent === q.filter);
     const spent = lines.reduce((sum, l) => sum + l.spend, 0n);
     const income = lines.filter((l) => l.kind === 'income').reduce((sum, l) => sum + l.amount, 0n);
 

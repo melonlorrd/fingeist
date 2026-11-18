@@ -8,7 +8,7 @@ export function filterAccount(scope, txns) {
 
 /** Every line, carrying its transaction's date, time and details. */
 export function linesOf(txns) {
-    return txns.flatMap((t) => t.lines.map((line) => ({...line, txn: t, date: t.date, intent: t.intent})));
+    return txns.flatMap((t) => t.lines.map((line) => ({...line, txn: t, date: t.date})));
 }
 
 /** Lines that change how much you spent: expenses add, refunds take away. */

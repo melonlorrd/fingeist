@@ -139,19 +139,20 @@ export function runningBalance(allTxns, transfers, project, scope) {
 export function intentTrends(txns, project) {
     /** @type {Map<string, {need: bigint, want: bigint, impulse: bigint}>} */
     const sums = new Map();
-    let noIntent = 0;
+    const withoutIntent = new Set();
     const months = [];
-    for (const t of expenseTxns(txns)) {
-        if (t.intent === '') {
-            noIntent++;
+    for (const line of linesOf(txns).filter((l) => l.kind === 'expense')) {
+        if (line.intent === '') {
+            withoutIntent.add(line.txn.id);
             continue;
         }
-        const month = cycleOf(t.date, project.monthStart);
+        const month = cycleOf(line.date, project.monthStart);
         months.push(month);
         const s = sums.get(month) ?? {need: 0n, want: 0n, impulse: 0n};
-        s[t.intent] += t.spend;
+        s[line.intent] += line.spend;
         sums.set(month, s);
     }
+    const noIntent = withoutIntent.size;
     const intentMonths = monthSpan(months).map((month) => {
         const s = sums.get(month) ?? {need: 0n, want: 0n, impulse: 0n};
         return {month, need: amountOf(s.need, project), want: amountOf(s.want, project), impulse: amountOf(s.impulse, project)};

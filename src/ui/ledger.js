@@ -256,7 +256,7 @@ export async function render(container, ctx) {
             el(
                 'span',
                 {className: 'badges'},
-                row.intent ? el('span', {className: `badge ${row.intent}`}, row.intent) : null,
+                row.intents.map((intent) => el('span', {className: `badge ${intent}`}, intent)),
                 row.refund ? el('span', {className: 'badge'}, 'refund') : null,
                 row.recurring ? el('span', {className: 'badge'}, 'repeats') : null,
             ),

@@ -60,7 +60,9 @@ test('buildBook parses every kind', () => {
         [b.txns[0].amount, b.txns[0].date, b.txns[0].hour, b.txns[0].intent, b.txns[0].category],
         [-4550n, '2026-11-07', 9, 'want', 'food'],
     );
-    assert.deepEqual(b.txns[0].lines, [{amount: -4550n, kind: 'expense', person: '', category: 'food', spend: 4550n}]);
+    assert.deepEqual(b.txns[0].lines, [
+        {amount: -4550n, kind: 'expense', person: '', category: 'food', intent: 'want', item: '', spend: 4550n},
+    ]);
     assert.deepEqual([b.transfers[0].amount, b.transfers[0].unknown], [50000n, true]);
     assert.deepEqual(
         b.project.categories.map((c) => [c.id, c.name, c.color]),
@@ -158,15 +160,105 @@ test('splits become lines: spending per category and shares lent to people', () 
         }),
     );
     assert.deepEqual(b.txns[0].lines, [
-        {amount: -20000n, kind: 'expense', person: '', category: 'food', spend: 20000n},
-        {amount: -40000n, kind: 'lent', person: 'rahul', category: '', spend: 0n},
+        {amount: -20000n, kind: 'expense', person: '', category: 'food', intent: 'want', item: '', spend: 20000n},
+        {amount: -40000n, kind: 'lent', person: 'rahul', category: '', intent: '', item: '', spend: 0n},
     ]);
 });
 
 test('refunds reduce spending in their category and are not income', () => {
     const b = book(cash, food, put('txn', 'r', {...coffee, amount: '20.00', refund: true, intent: 'want'}));
-    assert.deepEqual(b.txns[0].lines, [{amount: 2000n, kind: 'refund', person: '', category: 'food', spend: -2000n}]);
+    assert.deepEqual(b.txns[0].lines, [{amount: 2000n, kind: 'refund', person: '', category: 'food', intent: '', item: '', spend: -2000n}]);
     assert.equal(b.txns[0].intent, '');
+});
+
+test('split parts carry their own intent, fall back to the entry, and may be a discount', () => {
+    const snacks = put('category', 'snacks', {name: 'Snacks', color: '', archived: false, mergedInto: ''});
+    const order = (splits, extra = {}) =>
+        put('txn', 'order', {...coffee, amount: '-814.00', category: '', intent: 'want', splits, ...extra});
+    const b = book(
+        cash,
+        food,
+        snacks,
+        order([
+            {category: 'food', person: '', amount: '99.00', intent: 'need'},
+            {category: 'snacks', person: '', amount: '720.00'},
+            {category: '', person: '', amount: '35.00', intent: 'impulse'},
+            {category: 'snacks', person: '', amount: '-40.00'},
+        ]),
+    );
+    assert.deepEqual(b.problems, []);
+    assert.deepEqual(
+        b.txns[0].lines.map((l) => [l.category, l.kind, l.intent, l.spend]),
+        [
+            ['food', 'expense', 'need', 9900n],
+            ['snacks', 'expense', 'want', 72000n],
+            ['', 'expense', 'impulse', 3500n],
+            ['snacks', 'expense', 'want', -4000n],
+        ],
+    );
+
+    const income = book(
+        cash,
+        food,
+        put('txn', 'pay', {
+            ...coffee,
+            amount: '100.00',
+            intent: '',
+            splits: [
+                {category: 'food', person: '', amount: '120.00', intent: 'need'},
+                {category: '', person: '', amount: '-20.00'},
+            ],
+        }),
+    );
+    assert.deepEqual(
+        income.txns[0].lines.map((l) => [l.kind, l.amount, l.intent]),
+        [
+            ['income', 12000n, ''],
+            ['income', -2000n, ''],
+        ],
+        'income has no intent, and a negative part lowers it',
+    );
+});
+
+test('split parts that break the rules are reported', async (t) => {
+    const cases = [
+        [
+            'a negative share with a person',
+            [
+                {category: 'food', amount: '-20.00'},
+                {person: 'rahul', amount: '-25.50'},
+                {category: 'food', amount: '91.00'},
+            ],
+        ],
+        [
+            'a zero part',
+            [
+                {category: 'food', amount: '45.50'},
+                {category: 'food', amount: '0.00'},
+            ],
+        ],
+        [
+            'an unknown part intent',
+            [
+                {category: 'food', amount: '20.00', intent: 'hobby'},
+                {category: 'food', amount: '25.50'},
+            ],
+        ],
+        [
+            'parts that miss the total once the discount is taken off',
+            [
+                {category: 'food', amount: '45.50'},
+                {category: 'food', amount: '-5.00'},
+            ],
+        ],
+    ];
+    for (const [name, splits] of cases) {
+        await t.test(name, () => {
+            const b = book(cash, food, put('txn', 'bad', {...coffee, category: '', splits}));
+            assert.deepEqual(b.txns, []);
+            assert.equal(b.problems.length, 1);
+        });
+    }
 });
 
 test('malformed records are reported, left out, and never block the rest', () => {
@@ -209,7 +301,7 @@ test('malformed records are reported, left out, and never block the rest', () =>
     ]);
 });
 
-test('parseAmountInput accepts grouping, a currency symbol and sums', () => {
+test('parseAmountInput accepts grouping, a currency symbol, sums and differences', () => {
     const cases = [
         ['1,200', 120000n],
         ['₹ 450.5', 45050n],
@@ -217,11 +309,17 @@ test('parseAmountInput accepts grouping, a currency symbol and sums', () => {
         [' 10 + 20 ', 3000n],
         ['$5', 500n],
         ['-5', -500n],
+        ['720-40', 68000n],
+        ['25+10-5', 3000n],
+        ['₹1,200 - 200.50', 99950n],
+        ['-40+10', -3000n],
+        ['40-720', -68000n],
+        ['+5', 500n],
     ];
     for (const [input, want] of cases) {
         assert.equal(parseAmountInput(input, 2), want, input);
     }
-    for (const bad of ['', 'abc', '1+', '+', '1.234', '1e3', '12,5.5.5']) {
+    for (const bad of ['', 'abc', '1+', '+', '1.234', '1e3', '12,5.5.5', '720-', '--5', '5-+3', '-', '5--3', '5-x']) {
         assert.throws(() => parseAmountInput(bad, 2), bad);
     }
 });

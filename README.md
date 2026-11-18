@@ -50,7 +50,7 @@ devices/<deviceId>/00000001.bin encrypted change log, one file per sync
 
 | `kind` | `id` | Fields |
 |--------|------|--------|
-| `txn` | ULID | `time`, `amount` (negative: expense), `account`, `category` (ids; `""` is Uncategorized), `merchant`, `note`, `tags`, `intent` (expenses), `refund` (positive amounts), `splits` (`[{category, person, amount}]`, adding up to the amount), `recurring` |
+| `txn` | ULID | `time`, `amount` (negative: expense), `account`, `category` (ids; `""` is Uncategorized), `merchant`, `note`, `tags`, `intent` (expenses), `refund` (positive amounts), `splits` (`[{category, person, amount, intent, note}]`, the lines of an itemised bill, adding up to the amount; see below), `recurring` |
 | `transfer` | ULID | `time`, `amount` (positive), `from`, `to`, `note`, `recurring` |
 | `category` | ULID | `name`, `color`, `archived`, `mergedInto` |
 | `account` | ULID | `name`, `kind` (`own` or `person`), `opening`, `archived`, `mergedInto` |
@@ -62,6 +62,7 @@ devices/<deviceId>/00000001.bin encrypted change log, one file per sync
 - Amounts are decimal strings, never numbers. Times are RFC 3339 with offset, or a bare date when the time is unknown.
 - Names can change because everything refers to ids. A `mergedInto` redirects a category or account to another one; a deleted category leaves its entries Uncategorized.
 - A person is an account: a share split with them, or money moved to them, is what they owe you. Only `own` accounts count in your balance.
+- A split part's `intent` is optional and only kept on expenses; a part without one uses the transaction's `intent`. Your own parts may be negative, for a discount, which lowers spending in that part's category; a share with a person is always positive. A part's optional `note` is the item name. The form sets the amount to the total of the parts. Older apps read the extra `intent` and `note` as absent, and list a split with a negative part as unreadable until they update.
 - Repeats create each due entry with the id `<repeat id>.<date>`, so two devices creating it offline write the same record, and a deleted one stays deleted.
 
 ## Self-hosting

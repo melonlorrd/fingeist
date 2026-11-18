@@ -2,6 +2,7 @@
 
 import {accountRef, categoryRef} from './catalog.js';
 import {parseAmountInput, recurringFields, transferFields, txnFields} from './fields.js';
+import {formatMoney} from './money.js';
 import {occurrenceId} from './recurring.js';
 import {liveRecord} from './state.js';
 import {stamp} from './time.js';
@@ -23,11 +24,32 @@ export function entriesApi(ws) {
         return amount;
     }
 
+    // Your own share may be negative, for a discount; a person's share may not.
+    function partAmount(part) {
+        if (part.person) {
+            return positiveAmount(part.amount);
+        }
+        const amount = parseAmountInput(part.amount, ws.decimals());
+        if (amount === 0n) {
+            throw new Error('Enter an amount for each part');
+        }
+        return amount;
+    }
+
+    // An itemised entry's amount is the sum of its lines.
+    function billTotal(splits) {
+        const total = splits.reduce((sum, part) => sum + part.amount, 0n);
+        if (total <= 0n) {
+            throw new Error('The items must add up to more than zero');
+        }
+        return total;
+    }
+
     /** @returns {Promise<{kind: 'txn' | 'transfer', fields: Record<string, any>}>} */
     async function entryFields(input) {
         const time = timeOf(input);
-        const amount = positiveAmount(input.amount);
         if (input.type === 'transfer') {
+            const amount = positiveAmount(input.amount);
             const from = await accountRef(ws, input.from);
             const to = await accountRef(ws, input.to);
             return {kind: 'transfer', fields: transferFields({time, amount, from, to, note: input.note}, ws.decimals())};
@@ -37,9 +59,12 @@ export function entriesApi(ws) {
             splits.push({
                 category: part.person ? '' : await categoryRef(ws, part.category),
                 person: part.person ? await accountRef(ws, part.person, 'person') : '',
-                amount: positiveAmount(part.amount),
+                amount: partAmount(part),
+                intent: part.person || input.type !== 'expense' ? '' : (part.intent ?? ''),
+                note: part.note ?? '',
             });
         }
+        const amount = splits.length > 0 ? billTotal(splits) : positiveAmount(input.amount);
         const fields = txnFields(
             {
                 time,
@@ -92,7 +117,13 @@ export function entriesApi(ws) {
                 merchant: f.merchant ?? '',
                 tags: (f.tags ?? []).join(';'),
                 intent: f.intent ?? '',
-                splits: (f.splits ?? []).map((s) => ({category: s.category, person: s.person, amount: s.amount})),
+                splits: (f.splits ?? []).map((s) => ({
+                    category: s.category,
+                    person: s.person,
+                    amount: s.amount,
+                    intent: s.intent ?? '',
+                    note: s.note ?? '',
+                })),
             };
         },
 
@@ -151,6 +182,18 @@ export function entriesApi(ws) {
         },
 
         /** Merchants used before, most used first, with the category and account of their latest use. */
+        /** The running total of an itemised bill as typed, e.g. "814.00", or '' while a line can't be read. */
+        itemsTotal(amounts) {
+            try {
+                return formatMoney(
+                    amounts.reduce((sum, text) => sum + parseAmountInput(text, ws.decimals()), 0n),
+                    ws.decimals(),
+                );
+            } catch {
+                return '';
+            }
+        },
+
         merchantSuggestions() {
             /** @type {Map<string, {merchant: string, category: string, account: string, count: number}>} */
             const latest = new Map();

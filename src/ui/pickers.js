@@ -114,61 +114,129 @@ export function accountPicker(ctx, label, current, {kinds = ['own', 'person'], n
     };
 }
 
-/** The parts of a split: each is a category (your spending) or a person (their share), with an amount. */
-export function splitEditor(ctx, parts) {
+export const INTENTS = [
+    ['need', 'Need'],
+    ['want', 'Want'],
+    ['impulse', 'Impulse'],
+];
+
+/** Fills a group with radio pills; onPick gets the value clicked. */
+export function pills(group, items, current, onPick) {
+    group.replaceChildren(
+        ...items.map(([value, label]) =>
+            el(
+                'button',
+                {
+                    type: 'button',
+                    role: 'radio',
+                    'aria-checked': String(current === value),
+                    className: current === value ? `active ${value}` : '',
+                    onclick: () => onPick(value),
+                },
+                label,
+            ),
+        ),
+    );
+}
+
+/** The lines of an itemised bill: each is an item name and amount, for a category (with its own intent) or a person's share. */
+export function splitEditor(ctx, parts, onChange) {
     const rows = el('div', {className: 'balance-rows'});
     const entries = [];
+    let intentsShown = true;
+    let ready = false;
+    const changed = () => ready && onChange();
     const addPart = (part = {}, person = false) => {
         const target = person
             ? accountPicker(ctx, 'Person', part.person ?? '', {kinds: ['person'], newKinds: ['person']})
             : categoryPicker(ctx, part.category ?? '');
+        const name = el('input', {
+            value: part.note ?? '',
+            placeholder: person ? 'What it was for' : 'Item, e.g. Nail clipper',
+            autocomplete: 'off',
+            'aria-label': 'Item name',
+        });
         const amount = el('input', {
             value: part.amount ?? '',
             inputMode: 'decimal',
             placeholder: 'Amount',
             autocomplete: 'off',
-            'aria-label': 'Part amount',
+            'aria-label': 'Item amount',
+            oninput: () => changed(),
         });
-        const entry = {person, target, amount};
+        const intentButtons = el('div', {className: 'pills wide', role: 'radiogroup', 'aria-label': 'Part intent'});
+        const entry = {person, target, name, amount, intent: part.intent ?? '', intentButtons};
+        const showIntent = () =>
+            pills(intentButtons, INTENTS, entry.intent, (value) => {
+                entry.intent = entry.intent === value ? '' : value;
+                showIntent();
+            });
+        showIntent();
+        intentButtons.hidden = person || !intentsShown;
         const remove = () => {
             row.remove();
             entries.splice(entries.indexOf(entry), 1);
+            changed();
         };
         const row = el(
             'div',
             {className: 'split-part'},
-            el('small', {className: 'muted'}, person ? 'Their share' : 'Your share'),
+            el(
+                'div',
+                {className: 'dialog-head'},
+                el('small', {className: 'muted'}, person ? 'Their share' : 'Item'),
+                el('button', {type: 'button', className: 'quiet danger', onclick: remove}, 'Remove'),
+            ),
+            el('div', {className: 'balance-row'}, name, amount),
             target.node,
-            el('div', {className: 'balance-row'}, amount, el('button', {type: 'button', onclick: remove}, 'Remove')),
+            person ? null : intentButtons,
         );
         entries.push(entry);
         rows.append(row);
+        changed();
     };
     for (const part of parts) {
         addPart(part, Boolean(part.person));
     }
+    ready = true;
     const node = el(
         'div',
         {className: 'field'},
-        el('span', {}, 'Split'),
+        el('span', {}, 'Items'),
         el(
             'small',
             {className: 'muted'},
-            "Parts must add up to the amount. A person's share is money they owe you (or you them, for income).",
+            "The amount is the total of the items. Fees are items too; a discount is a negative item, like -40. A person's share is money they owe you (or you them, for income). An item with no intent uses the one below.",
         ),
         rows,
         el(
             'div',
             {className: 'head-actions'},
-            el('button', {type: 'button', onclick: () => addPart({})}, icon('plus'), 'Your share'),
-            el('button', {type: 'button', onclick: () => addPart({}, true)}, icon('plus'), 'Split with a person'),
+            el('button', {type: 'button', onclick: () => addPart({})}, icon('plus'), 'Item'),
+            el('button', {type: 'button', onclick: () => addPart({}, true)}, icon('plus'), 'Share with a person'),
         ),
     );
     return {
         node,
+        amounts: () => entries.map((p) => p.amount.value),
+        /** Starts an empty bill with two blank items. */
+        begin() {
+            if (entries.length === 0) {
+                addPart({});
+                addPart({});
+            }
+        },
         value: () =>
             entries.map((p) =>
-                p.person ? {person: p.target.value(), amount: p.amount.value} : {category: p.target.value(), amount: p.amount.value},
+                p.person
+                    ? {person: p.target.value(), amount: p.amount.value, note: p.name.value}
+                    : {category: p.target.value(), amount: p.amount.value, intent: p.intent, note: p.name.value},
             ),
+        showIntents(shown) {
+            intentsShown = shown;
+            for (const p of entries) {
+                p.intentButtons.hidden = p.person || !shown;
+            }
+        },
     };
 }

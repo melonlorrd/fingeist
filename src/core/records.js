@@ -49,6 +49,32 @@ function positive(value, field, decimals) {
     return amount;
 }
 
+function parseIntent(value) {
+    const intent = text(value ?? '', 'intent');
+    if (intent !== '' && !INTENTS.includes(intent)) {
+        throw new Error(`unknown intent "${intent}"`);
+    }
+    return intent;
+}
+
+// A negative part is a discount on your own share; a person's share is always positive.
+function parsePart(part, decimals) {
+    const person = text(part?.person ?? '', 'split person');
+    const amount = person
+        ? positive(part?.amount, 'a share with a person', decimals)
+        : parseMoney(text(part?.amount, 'split amount'), decimals);
+    if (amount === 0n) {
+        throw new Error('a split part must not be zero');
+    }
+    return {
+        category: text(part?.category ?? '', 'split category'),
+        person,
+        amount,
+        intent: person ? '' : parseIntent(part?.intent),
+        note: text(part?.note ?? '', 'item name'),
+    };
+}
+
 function parseSplits(value, total, decimals) {
     if (value === undefined || (Array.isArray(value) && value.length === 0)) {
         return [];
@@ -56,11 +82,7 @@ function parseSplits(value, total, decimals) {
     if (!Array.isArray(value) || value.length < 2) {
         throw new Error('a split needs at least two parts');
     }
-    const parts = value.map((part) => ({
-        category: text(part?.category ?? '', 'split category'),
-        person: text(part?.person ?? '', 'split person'),
-        amount: positive(part?.amount, 'split amount', decimals),
-    }));
+    const parts = value.map((part) => parsePart(part, decimals));
     const sum = parts.reduce((s, p) => s + p.amount, 0n);
     if (sum !== (total < 0n ? -total : total)) {
         throw new Error(
@@ -77,12 +99,9 @@ export function parseTxn(id, data, decimals) {
     if (amount === 0n) {
         throw new Error('amount must not be zero');
     }
-    const intent = text(data.intent ?? '', 'intent');
-    if (intent !== '' && !INTENTS.includes(intent)) {
-        throw new Error(`unknown intent "${intent}"`);
-    }
+    const intent = parseIntent(data.intent);
     const refund = amount > 0n && bool(data.refund);
-    const splits = parseSplits(data.splits, amount, decimals);
+    const splits = parseSplits(data.splits, amount, decimals).map((part) => (amount < 0n ? part : {...part, intent: ''}));
     if (refund && splits.length > 0) {
         throw new Error('a refund cannot be split');
     }
@@ -205,30 +224,33 @@ function resolver(records, fallback) {
 
 const byName = (a, b) => a.name.localeCompare(b.name) || (a.id < b.id ? -1 : 1);
 
-/** The kind of a line: spending, a refund against spending, income, or a share someone else owes. */
-function lineKind(amount, refund, person) {
+/** The kind of a line, from its transaction: spending, a refund against spending, income, or a share someone else owes. */
+function lineKind(txn, person) {
     if (person) {
         return 'lent';
     }
-    if (amount < 0n) {
+    if (txn.amount < 0n) {
         return 'expense';
     }
-    return refund ? 'refund' : 'income';
+    return txn.refund ? 'refund' : 'income';
 }
 
 /** The lines of a transaction, with category and person ids passed through the resolvers. */
 function txnLines(txn, resolveCategory, resolveAccount) {
     const sign = txn.amount < 0n ? -1n : 1n;
-    const parts = txn.splits.length > 0 ? txn.splits : [{category: txn.category, person: '', amount: txn.amount * sign}];
+    const parts =
+        txn.splits.length > 0 ? txn.splits : [{category: txn.category, person: '', amount: txn.amount * sign, intent: '', note: ''}];
     return parts.map((part) => {
         const amount = part.amount * sign;
         const person = part.person ? resolveAccount(part.person) : '';
-        const kind = lineKind(amount, txn.refund, person);
+        const kind = lineKind(txn, person);
         return {
             amount,
             kind,
             person,
             category: person ? '' : resolveCategory(part.category),
+            intent: kind === 'expense' ? part.intent || txn.intent : '',
+            item: part.note,
             spend: kind === 'expense' || kind === 'refund' ? -amount : 0n,
         };
     });

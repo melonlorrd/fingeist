@@ -24,7 +24,7 @@ function splitTags(value) {
 
 /**
  * Reads an amount typed in a form: grouping commas, spaces and a currency symbol are ignored, and
- * "120+45.5" adds up. Returns minor units; throws a message for the form.
+ * "120+45.5" and "720-40" add up. Returns minor units; throws a message for the form.
  */
 export function parseAmountInput(input, decimals) {
     const cleaned = String(input ?? '')
@@ -33,14 +33,13 @@ export function parseAmountInput(input, decimals) {
     if (cleaned === '') {
         throw new Error('Enter an amount');
     }
-    const terms = cleaned.split('+');
-    if (terms.some((t) => t === '')) {
+    if (!/^[+-]?[^+-]+([+-][^+-]+)*$/.test(cleaned)) {
         throw new Error(`invalid amount "${input}"`);
     }
-    return terms.reduce((sum, term) => sum + parseMoney(term, decimals), 0n);
+    return (cleaned.match(/[+-]?[^+-]+/g) ?? []).reduce((sum, term) => sum + parseMoney(term, decimals), 0n);
 }
 
-/** Fields for a transaction from checked form input. amount is signed minor units; splits use positive text. */
+/** Fields for a transaction from checked form input. amount is signed minor units; a negative split part is a discount. */
 export function txnFields(input, decimals) {
     const fields = {
         time: input.time,
@@ -56,6 +55,8 @@ export function txnFields(input, decimals) {
             category: s.category ?? '',
             person: s.person ?? '',
             amount: formatMoney(s.amount, decimals),
+            ...(s.intent ? {intent: s.intent} : {}),
+            ...(String(s.note ?? '').trim() ? {note: String(s.note).trim()} : {}),
         })),
     };
     if (input.recurring) {

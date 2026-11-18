@@ -135,8 +135,15 @@ async function visitEverything(label) {
         await click(type, dialog());
         assertClean(`${label}: add dialog as ${type}`);
     }
-    await click('Split this', dialog());
-    await click('Split with a person', dialog());
+    await click('Itemise', dialog());
+    const itemAmounts = /** @type {HTMLInputElement[]} */ ([...dialog().querySelectorAll('input[aria-label="Item amount"]')]);
+    assert.equal(itemAmounts.length, 2, 'an empty bill starts with two items');
+    itemAmounts[0].value = '720';
+    itemAmounts[1].value = '-40';
+    itemAmounts[1].dispatchEvent(new Event('input'));
+    const total = /** @type {HTMLInputElement} */ (dialog().querySelector('input[name="amount"]'));
+    assert.deepEqual([total.value, total.readOnly], ['680.00', true]);
+    await click('Share with a person', dialog());
     await click('New category', dialog());
     assertClean(`${label}: split editor`);
     await closeDialog();
@@ -180,6 +187,17 @@ test('every screen and dialog with a full book', async () => {
             {person: 'new:Rahul', amount: '400'},
         ],
     });
+    await app.saveEntry({
+        ...base,
+        amount: '779',
+        merchant: 'Instamart',
+        intent: 'want',
+        splits: [
+            {category: 'new:Essentials', amount: '99', intent: 'need'},
+            {category: 'new:Snacks', amount: '720', intent: ''},
+            {category: 'new:Snacks', amount: '-40', intent: ''},
+        ],
+    });
     await app.saveEntry({...base, type: 'refund', amount: '20', category: 'new:Food', date: '2026-11-15'});
     await app.saveEntry({...base, type: 'income', amount: '50000', category: '', merchant: 'Salary', date: '2026-11-01'});
     await app.saveEntry({type: 'transfer', amount: '500', from: 'new:Bank', to: 'new:Cash', note: 'ATM', date: '2026-11-13', clock: ''});
@@ -208,6 +226,16 @@ test('every screen and dialog with a full book', async () => {
     assertClean('full: edit dialog');
     await click('Add again', dialog());
     assertClean('full: add again dialog');
+    await closeDialog();
+    const order = [...document.querySelectorAll('button.row')].find((b) => b.textContent?.includes('Instamart'));
+    assert.ok(order, 'no row for the Instamart order');
+    assert.match(order.textContent ?? '', /need.*want/);
+    order.click();
+    await settle();
+    assert.equal(dialog().querySelectorAll('[aria-label="Part intent"]').length, 3);
+    assertClean('full: split order dialog');
+    await click('Income', dialog());
+    assert.ok([...dialog().querySelectorAll('[aria-label="Part intent"]')].every((g) => /** @type {HTMLElement} */ (g).hidden));
     await closeDialog();
     const before = app.ledger().count;
     firstRow().click();

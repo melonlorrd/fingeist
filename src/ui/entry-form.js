@@ -1,13 +1,8 @@
 // The add/edit dialog for an expense, income, refund or transfer, and the actions on one entry.
 
 import {closeDialog, datePicker, el, field, formDialog, openDialog} from './dom.js';
-import {accountPicker, categoryPicker, splitEditor} from './pickers.js';
+import {accountPicker, categoryPicker, INTENTS, pills, splitEditor} from './pickers.js';
 
-const INTENTS = [
-    ['need', 'Need'],
-    ['want', 'Want'],
-    ['impulse', 'Impulse'],
-];
 const TYPES = [
     ['expense', 'Expense'],
     ['income', 'Income'],
@@ -57,24 +52,6 @@ async function deleteEntry(ctx, id) {
     });
 }
 
-function pills(group, items, current, onPick) {
-    group.replaceChildren(
-        ...items.map(([value, label]) =>
-            el(
-                'button',
-                {
-                    type: 'button',
-                    role: 'radio',
-                    'aria-checked': String(current === value),
-                    className: current === value ? `active ${value}` : '',
-                    onclick: () => onPick(value),
-                },
-                label,
-            ),
-        ),
-    );
-}
-
 /** The add/edit dialog. entry is null for a new one; an entry without an id is a copy. */
 export function openEntryForm(ctx, entry) {
     const isNew = !entry?.id;
@@ -95,12 +72,29 @@ export function openEntryForm(ctx, entry) {
     const to = accountPicker(ctx, 'To account', entry?.to ?? '');
     const fromField = field('From', from.node);
     const toField = field('To', to.node);
-    const split = splitEditor(ctx, entry?.splits ?? []);
+    const amountInput = el('input', {
+        name: 'amount',
+        required: true,
+        value: entry?.amount ?? '',
+        inputMode: 'decimal',
+        autocomplete: 'off',
+        placeholder: '0.00',
+        'aria-label': 'Amount',
+    });
+    const showTotal = () => {
+        if (splitting) {
+            amountInput.value = ctx.app.itemsTotal(split.amounts());
+        }
+    };
+    const split = splitEditor(ctx, entry?.splits ?? [], showTotal);
     const splitToggle = el('button', {
         type: 'button',
         className: 'quiet',
         onclick: () => {
             splitting = !splitting;
+            if (splitting) {
+                split.begin();
+            }
             showType();
         },
     });
@@ -155,11 +149,14 @@ export function openEntryForm(ctx, entry) {
         const canSplit = type === 'expense' || type === 'income';
         splitting &&= canSplit;
         intentField.hidden = type !== 'expense';
+        split.showIntents(type === 'expense');
         accountField.hidden = merchantField.hidden = tagsField.hidden = transfer;
         categoryField.hidden = transfer || splitting;
         split.node.hidden = !splitting;
         splitToggle.hidden = !canSplit;
-        splitToggle.textContent = splitting ? "Don't split" : 'Split this';
+        splitToggle.textContent = splitting ? "Don't itemise" : 'Itemise';
+        amountInput.readOnly = splitting;
+        showTotal();
         fromField.hidden = toField.hidden = !transfer;
     }
     showType();
@@ -169,21 +166,8 @@ export function openEntryForm(ctx, entry) {
         title: isNew ? 'Add' : 'Edit',
         fields: [
             typePills,
-            el(
-                'label',
-                {className: 'amount-input'},
-                el('span', {}, ctx.boot.currency),
-                el('input', {
-                    name: 'amount',
-                    required: true,
-                    value: entry?.amount ?? '',
-                    inputMode: 'decimal',
-                    autocomplete: 'off',
-                    placeholder: '0.00',
-                    'aria-label': 'Amount',
-                }),
-            ),
-            el('small', {className: 'muted'}, 'You can type a sum, e.g. 120+45.50.'),
+            el('label', {className: 'amount-input'}, el('span', {}, ctx.boot.currency), amountInput),
+            el('small', {className: 'muted'}, 'You can type a sum, e.g. 720-40 or 120+45.50.'),
             accountField,
             fromField,
             toField,

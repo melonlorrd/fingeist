@@ -10,7 +10,7 @@ export function exportJson(winners, meta) {
     return `${JSON.stringify({app: 'fingeist', format: 1, meta, records}, null, 2)}\n`;
 }
 
-const HEADER = ['id', 'date', 'time', 'type', 'amount', 'account', 'to_account', 'category', 'merchant', 'note', 'tags', 'intent'];
+const HEADER = ['id', 'date', 'time', 'type', 'amount', 'account', 'to_account', 'category', 'item', 'merchant', 'note', 'tags', 'intent'];
 
 function cell(value) {
     const text = String(value ?? '');
@@ -33,10 +33,11 @@ export function exportCsv(book) {
                 accountName(project, t.account),
                 l.person ? accountName(project, l.person) : '',
                 l.person ? '' : categoryName(project, l.category),
+                l.item,
                 t.merchant,
                 t.note,
                 t.tags.join(';'),
-                t.intent,
+                l.intent,
             ]),
         ),
         ...book.transfers.map((x) => [
@@ -47,6 +48,7 @@ export function exportCsv(book) {
             money(x.amount),
             accountName(project, x.from),
             accountName(project, x.to),
+            '',
             '',
             '',
             x.note,

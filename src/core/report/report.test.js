@@ -349,6 +349,48 @@ test('intent_trends', () => {
     assert.equal(c.noIntent, 1);
 });
 
+test('intent_trends and the ledger follow the intent of each split part', () => {
+    const order = txn('2026-11-05T10:00:00Z', -81400n, '', {
+        id: 'order',
+        intent: 'want',
+        splits: [
+            {category: 'groceries', person: '', amount: '99.00', intent: 'need'},
+            {category: 'transport', person: '', amount: '720.00'},
+            {category: '', person: '', amount: '35.00'},
+            {category: 'transport', person: '', amount: '-40.00'},
+        ],
+    });
+    const c = chart('intent_trends', [order]);
+    assert.deepEqual(c.intentMonths, [{month: '2026-11', need: a(9900n, '$99.00'), want: a(71500n, '$715.00'), impulse: a(0n, '$0.00')}]);
+    assert.equal(c.noIntent, 0);
+    assert.deepEqual(
+        chart('by_category', [order]).categories.map((x) => [x.name, x.spent.text]),
+        [
+            ['transport', '$680.00'],
+            ['groceries', '$99.00'],
+            ['Uncategorized', '$35.00'],
+        ],
+        'the discount comes off its own category',
+    );
+
+    const b = bookOf(order);
+    const all = ledgerView(b.txns, b.transfers, b.project);
+    assert.deepEqual([all.spent.text, all.days[0].rows[0].intents], ['$814.00', ['need', 'want']]);
+    const needs = ledgerView(b.txns, b.transfers, b.project, {filter: 'need'});
+    assert.deepEqual([needs.count, needs.spent.text], [1, '$99.00']);
+    assert.equal(ledgerView(b.txns, b.transfers, b.project, {filter: 'impulse'}).count, 0);
+
+    const untagged = chart('intent_trends', [
+        txn('2026-11-05T10:00:00Z', -2000n, '', {
+            splits: [
+                {category: 'groceries', person: '', amount: '10.00', intent: 'need'},
+                {category: 'groceries', person: '', amount: '10.00'},
+            ],
+        }),
+    ]);
+    assert.deepEqual([untagged.intentMonths[0].need.text, untagged.noIntent], ['$10.00', 1]);
+});
+
 test('small_purchases', () => {
     const c = chart('small_purchases', [
         txn('2026-11-01T10:00:00Z', -100n),
@@ -618,8 +660,8 @@ test('ledgerView', async (t) => {
     );
     const coffee = day.rows[1];
     assert.deepEqual(
-        [coffee.category, coffee.categoryColor, coffee.intent, coffee.amount.text, coffee.account],
-        ['groceries', '#111111', 'want', '-$4.50', 'Cash'],
+        [coffee.category, coffee.categoryColor, coffee.intents, coffee.amount.text, coffee.account],
+        ['groceries', '#111111', ['want'], '-$4.50', 'Cash'],
     );
     assert.equal(day.rows[0].category, 'Uncategorized');
     assert.deepEqual([data.days[1].rows[0].refund, data.days[1].total.text], [true, '$2.00']);

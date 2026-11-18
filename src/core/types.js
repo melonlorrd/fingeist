@@ -18,8 +18,9 @@
  * @typedef {{time: string, date: string, hour: number | null, minute: number | null, unknown: boolean, instant: number | null}} When
  *
  * @typedef {'expense' | 'refund' | 'income' | 'lent'} LineKind
- * @typedef {{amount: bigint, kind: LineKind, person: string, category: string, spend: bigint}} Line
- * @typedef {{category: string, person: string, amount: bigint}} SplitPart
+ * @typedef {{amount: bigint, kind: LineKind, person: string, category: string, intent: string, item: string, spend: bigint}} Line
+ * A split part, or a line of an itemised bill; a negative amount is a discount, and an empty intent means the transaction's.
+ * @typedef {{category: string, person: string, amount: bigint, intent: string, note: string}} SplitPart
  *
  * @typedef {When & {id: string, amount: bigint, refund: boolean, splits: SplitPart[], account: string, category: string,
  *   merchant: string, note: string, tags: string[], intent: string, recurring: string, lines: Line[]}} Txn

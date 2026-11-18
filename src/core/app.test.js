@@ -80,7 +80,7 @@ test('an expense creates its new account and category inline, and is signed from
         ['Food'],
     );
     const row = app.ledger().days[0].rows[0];
-    assert.deepEqual([row.amount.text, row.time, row.intent, row.category, row.account], ['-₹120.50', '09:30', 'need', 'Food', 'Cash']);
+    assert.deepEqual([row.amount.text, row.time, row.intents, row.category, row.account], ['-₹120.50', '09:30', ['need'], 'Food', 'Cash']);
     assert.equal(boot.lastAccount, ids(app).Cash);
     assert.deepEqual(app.getEntry(row.id), {
         id: row.id,
@@ -137,6 +137,7 @@ test('editing writes only changed fields and keeps the original time unless it w
 test('bad form input is refused with a message and saves nothing', async () => {
     const {app} = await withProject();
     await assert.rejects(app.saveEntry({...expense, amount: '0'}), /more than zero/);
+    await assert.rejects(app.saveEntry({...expense, amount: '40-720'}), /more than zero/);
     await assert.rejects(app.saveEntry({...expense, amount: '1.234'}), /invalid amount/);
     await assert.rejects(app.saveEntry({...expense, account: ''}), /account is required/);
     await assert.rejects(app.saveEntry({...expense, date: '2026-02-30'}), /invalid date/);
@@ -184,10 +185,56 @@ test('splits with a friend, the friend paying for you, and settling up', async (
             amount: '100',
             splits: [
                 {category: '', amount: '30'},
-                {category: '', amount: '30'},
+                {category: '', amount: '-30'},
             ],
         }),
-        /add up to/,
+        /add up to more than zero/,
+    );
+});
+
+test('an itemised bill: named items with their own intent, a fee and a discount, totalled for you', async () => {
+    const {app} = await withProject();
+    await app.saveEntry({
+        ...expense,
+        amount: 'ignored while itemising',
+        category: '',
+        intent: 'want',
+        splits: [
+            {category: 'new:Essentials', amount: '99', intent: 'need', note: ' Nail clipper '},
+            {category: 'new:Snacks', amount: '720', intent: '', note: 'White Monster x6'},
+            {category: 'new:Delivery', amount: '25+10', intent: '', note: ''},
+            {category: 'new:Snacks', amount: '720-760', intent: '', note: 'Coupon'},
+        ],
+    });
+    const [row] = app.ledger().days[0].rows;
+    assert.deepEqual([row.amount.text, row.intents, row.split, row.category], ['-₹814.00', ['need', 'want'], true, '4 items']);
+    assert.deepEqual(
+        app.getEntry(row.id).splits.map((s) => [s.amount, s.intent, s.note]),
+        [
+            ['99.00', 'need', 'Nail clipper'],
+            ['720.00', '', 'White Monster x6'],
+            ['35.00', '', ''],
+            ['-40.00', '', 'Coupon'],
+        ],
+    );
+    assert.equal(app.ledger({search: 'monster'}).count, 1, 'search covers item names');
+    assert.match(app.exportCsv(), /,Snacks,White Monster x6,Market,/);
+    assert.deepEqual(
+        [app.itemsTotal(['99', '720', '25+10', '-40']), app.itemsTotal(['99', '']), app.itemsTotal([])],
+        ['814.00', '', '0.00'],
+    );
+    assert.equal(app.boot().accounts[0].balance.text, '-₹814.00');
+    await assert.rejects(
+        app.saveEntry({
+            ...expense,
+            amount: '50',
+            category: '',
+            splits: [
+                {category: '', amount: '100'},
+                {person: 'new:Rahul', amount: '-50'},
+            ],
+        }),
+        /more than zero/,
     );
 });
 
@@ -389,8 +436,8 @@ test('export gives readable JSON and CSV', async () => {
         ['fingeist', 'INR', 1, 'Food'],
     );
     const csv = app.exportCsv().split('\n');
-    assert.equal(csv[0], 'id,date,time,type,amount,account,to_account,category,merchant,note,tags,intent');
-    assert.match(csv[1], /,2026-11-15,09:30,expense,-120.50,Cash,,Food,Market,"with ""quotes"", and commas",weekly,need$/);
+    assert.equal(csv[0], 'id,date,time,type,amount,account,to_account,category,item,merchant,note,tags,intent');
+    assert.match(csv[1], /,2026-11-15,09:30,expense,-120.50,Cash,,Food,,Market,"with ""quotes"", and commas",weekly,need$/);
 });
 
 test('local only: no sync until connected, and everything survives a restart', async () => {
