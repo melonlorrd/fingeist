@@ -1,1 +1,64 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#1c5cab"/><path d="M176 136h176v52H236v52h100v50H236v86h-60z" fill="#fcfbf8"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3f8ae0"/>
+      <stop offset="0.55" stop-color="#1c5cab"/>
+      <stop offset="1" stop-color="#0f3a72"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.3" cy="0.18" r="0.75">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="cover" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.62"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.2"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.6"/>
+    </linearGradient>
+    <linearGradient id="pages" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e9e2d3"/>
+      <stop offset="1" stop-color="#fcfbf8"/>
+    </linearGradient>
+    <linearGradient id="coin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe38a"/>
+      <stop offset="0.55" stop-color="#f6b93b"/>
+      <stop offset="1" stop-color="#d98a12"/>
+    </linearGradient>
+    <linearGradient id="coinFace" x1="1" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#ffe38a"/>
+      <stop offset="1" stop-color="#eaa323"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#06203f" flood-opacity="0.45"/>
+    </filter>
+    <clipPath id="coverShape"><rect x="120" y="104" width="230" height="292" rx="30"/></clipPath>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="112" fill="url(#glow)"/>
+
+  <g transform="translate(-14 -12)">
+  <g filter="url(#shadow)">
+    <rect x="146" y="118" width="226" height="286" rx="26" fill="url(#pages)"/>
+    <path d="M356 150v222M364 160v202" stroke="#d6cdbb" stroke-width="3" stroke-linecap="round"/>
+    <rect x="120" y="104" width="230" height="292" rx="30" fill="#2f74c8"/>
+  </g>
+  <rect x="120" y="104" width="230" height="292" rx="30" fill="url(#cover)"/>
+  <rect x="120" y="104" width="40" height="292" fill="#ffffff" fill-opacity="0.18" clip-path="url(#coverShape)"/>
+  <path d="M160 104v292" stroke="#ffffff" stroke-opacity="0.5" stroke-width="2"/>
+  <rect x="121.5" y="105.5" width="227" height="289" rx="28.5" fill="none" stroke="url(#edge)" stroke-width="3"/>
+  <path d="M196 170h116M196 206h84M196 242h100" stroke="#ffffff" stroke-opacity="0.85" stroke-width="14" stroke-linecap="round"/>
+
+  <g filter="url(#shadow)">
+    <circle cx="338" cy="352" r="82" fill="url(#coin)"/>
+  </g>
+  <circle cx="338" cy="352" r="62" fill="url(#coinFace)"/>
+  <circle cx="338" cy="352" r="80.5" fill="none" stroke="#fff4c8" stroke-opacity="0.8" stroke-width="3"/>
+  <circle cx="338" cy="352" r="62" fill="none" stroke="#b9730c" stroke-opacity="0.55" stroke-width="4"/>
+  <path d="M316 324h44M316 344h44M330 324c22 0 30 10 30 20s-8 20-30 20h-14l40 34" fill="none" stroke="#9a5f08" stroke-opacity="0.8" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M286 300a76 76 0 0 1 66-26" fill="none" stroke="#ffffff" stroke-opacity="0.7" stroke-width="8" stroke-linecap="round"/>
+  </g>
+</svg>
