@@ -6,6 +6,7 @@ import {CanvasRenderer} from 'echarts/renderers';
 
 import {el, monthLabel} from './dom.js';
 import {openEntryList} from './entry-form.js';
+import {icon} from './icons.js';
 
 echarts.use([
     BarChart,
@@ -136,6 +137,12 @@ function escapeHtml(text) {
     return String(text).replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[c]);
 }
 
+// ECharts animates on its own canvas, so the CSS reduced-motion rule doesn't reach it.
+function motion() {
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    return reduced ? {animation: false} : {animationDuration: 400, animationDurationUpdate: 250};
+}
+
 // The chart is created once its element has a size, which may be after it is added to the page.
 function mount(parent, buildOption, data, height = DEFAULT_HEIGHT, onReady) {
     const canvas = el('div', {className: 'chart'});
@@ -152,7 +159,7 @@ function mount(parent, buildOption, data, height = DEFAULT_HEIGHT, onReady) {
             return;
         }
         instance = echarts.init(canvas);
-        instance.setOption(buildOption(data, theme()));
+        instance.setOption({...buildOption(data, theme()), ...motion()});
         instances.push(instance);
         onReady?.(instance);
     });
@@ -617,8 +624,8 @@ function renderNoSpend(body, chart) {
 
     const heading = el('strong', {});
     const stats = el('div', {className: 'tiles'});
-    const previous = el('button', {onclick: () => step(-1)}, '‹ Earlier');
-    const next = el('button', {onclick: () => step(1)}, 'Later ›');
+    const previous = el('button', {onclick: () => step(-1)}, icon('previous'), 'Earlier');
+    const next = el('button', {onclick: () => step(1)}, 'Later', icon('next'));
     let chartInstance = null;
 
     const show = () => {
@@ -631,7 +638,7 @@ function renderNoSpend(body, chart) {
             tile('Best streak this month', `${month.bestStreak} days`),
             tile('No-spend days this month', String(month.zeroDays)),
         );
-        chartInstance?.setOption(noSpendOption(month, theme()), true);
+        chartInstance?.setOption({...noSpendOption(month, theme()), ...motion()}, true);
     };
     const step = (delta) => {
         noSpendIndex += delta;

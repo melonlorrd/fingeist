@@ -3,6 +3,7 @@ import * as categories from './categories.js';
 import * as dashboard from './dashboard.js';
 import {dialogElement, el, fill} from './dom.js';
 import {openEntryForm} from './entry-form.js';
+import {icon} from './icons.js';
 import * as ledger from './ledger.js';
 import * as settings from './settings.js';
 import {renderSetup} from './setup.js';
@@ -41,7 +42,12 @@ export function startShell(app) {
     // The same nav and Add button on every screen size: CSS puts them in the top bar on wide screens,
     // and the nav at the bottom with Add floating above it on phones.
     const nav = el('nav', {className: 'pills tabs', 'aria-label': 'Sections'});
-    const addButton = el('button', {className: 'primary add-button', onclick: () => openEntryForm(ctx, null)}, '+ Add');
+    const addButton = el(
+        'button',
+        {className: 'primary add-button', onclick: () => openEntryForm(ctx, null)},
+        icon('plus'),
+        el('span', {}, 'Add'),
+    );
     const notice = el('div', {className: 'notice', role: 'status', hidden: true});
     const banner = el('div', {});
     const view = el('main', {});
@@ -173,7 +179,8 @@ export function startShell(app) {
                               'aria-current': key === activeTab ? 'page' : 'false',
                               onclick: () => showTab(key),
                           },
-                          v.label,
+                          icon(key),
+                          el('span', {}, v.label),
                       ),
                   )),
         );

@@ -129,15 +129,15 @@ async function visitEverything(label) {
         assertClean(`${label}: ${tab}`);
     }
     await click('Ledger', document.querySelector('nav') ?? document);
-    await click('+ Add');
+    await click('Add');
     assertClean(`${label}: add dialog`);
     for (const type of ['Income', 'Refund', 'Transfer', 'Expense']) {
         await click(type, dialog());
         assertClean(`${label}: add dialog as ${type}`);
     }
     await click('Split this', dialog());
-    await click('+ Split with a person', dialog());
-    await click('+ New category', dialog());
+    await click('Split with a person', dialog());
+    await click('New category', dialog());
     assertClean(`${label}: split editor`);
     await closeDialog();
 }

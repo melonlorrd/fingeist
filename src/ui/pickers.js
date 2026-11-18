@@ -3,6 +3,7 @@
 
 import {NEW_PREFIX} from '../core/app.js';
 import {el, fill} from './dom.js';
+import {icon} from './icons.js';
 
 /** Category chips: Uncategorized, the active categories, and "+ New category" which asks for a name. */
 export function categoryPicker(ctx, current) {
@@ -48,7 +49,8 @@ export function categoryPicker(ctx, current) {
                         nameInput.focus();
                     },
                 },
-                '+ New category',
+                icon('plus'),
+                'New category',
             ),
             creating ? nameInput : null,
         );
@@ -158,8 +160,8 @@ export function splitEditor(ctx, parts) {
         el(
             'div',
             {className: 'head-actions'},
-            el('button', {type: 'button', onclick: () => addPart({})}, '+ Your share'),
-            el('button', {type: 'button', onclick: () => addPart({}, true)}, '+ Split with a person'),
+            el('button', {type: 'button', onclick: () => addPart({})}, icon('plus'), 'Your share'),
+            el('button', {type: 'button', onclick: () => addPart({}, true)}, icon('plus'), 'Split with a person'),
         ),
     );
     return {

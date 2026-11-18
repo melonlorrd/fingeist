@@ -1,3 +1,5 @@
+import {icon} from './icons.js';
+
 export function el(tag, props = {}, ...children) {
     const node = document.createElement(tag);
     for (const [key, value] of Object.entries(props)) {
@@ -141,9 +143,13 @@ export function datePicker({name, value = '', placeholder = 'Any date', label, t
             el(
                 'div',
                 {className: 'date-head'},
-                el('button', {type: 'button', className: 'quiet', 'aria-label': 'Previous month', onclick: () => step(-1)}, '‹'),
+                el(
+                    'button',
+                    {type: 'button', className: 'quiet', 'aria-label': 'Previous month', onclick: () => step(-1)},
+                    icon('previous'),
+                ),
                 el('strong', {}, new Date(year, month, 1).toLocaleDateString(undefined, {month: 'long', year: 'numeric'})),
-                el('button', {type: 'button', className: 'quiet', 'aria-label': 'Next month', onclick: () => step(1)}, '›'),
+                el('button', {type: 'button', className: 'quiet', 'aria-label': 'Next month', onclick: () => step(1)}, icon('next')),
             ),
             el(
                 'div',
@@ -240,7 +246,7 @@ export function formDialog({title, fields, submitLabel = 'Save', actions = [], o
             'div',
             {className: 'dialog-head'},
             el('h2', {}, title),
-            el('button', {type: 'button', className: 'close', 'aria-label': 'Close', onclick: closeDialog}, '×'),
+            el('button', {type: 'button', className: 'close', 'aria-label': 'Close', onclick: closeDialog}, icon('close')),
         ),
         fields,
         message,

@@ -1,4 +1,5 @@
 import {confirmDialog, el, field, fill, formDialog, pageHeader} from './dom.js';
+import {icon} from './icons.js';
 
 export async function render(container, ctx) {
     const act = async (change) => {
@@ -36,7 +37,7 @@ export async function render(container, ctx) {
         pageHeader(
             'Categories and budgets',
             'Rename, recolour, merge or delete categories; entries follow along.',
-            el('button', {className: 'primary', onclick: () => openCategory(ctx, null)}, '+ New category'),
+            el('button', {className: 'primary', onclick: () => openCategory(ctx, null)}, icon('plus'), 'New category'),
         ),
         budgetsCard(ctx),
         el(

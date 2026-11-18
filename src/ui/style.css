@@ -26,6 +26,11 @@
     /* Floating layers (dialogs, popovers): solid, with a hairline edge and a soft shadow. */
     --hairline: color-mix(in srgb, var(--text) 11%, transparent);
     --shadow-float: 0 18px 44px rgba(0, 0, 0, 0.26), 0 0 0 0.5px var(--hairline);
+
+    /* Motion: short, ease-out, only opacity, transform and colour; off when the OS asks for reduced motion. */
+    --t-fast: 120ms;
+    --t-base: 200ms;
+    --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -167,6 +172,22 @@ select {
 }
 button {
     cursor: pointer;
+}
+button:has(> .icon) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+.icon {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 button:disabled {
     opacity: 0.5;
@@ -538,7 +559,10 @@ ul.plain {
 .filter-bar input[type="search"] {
     flex: 1;
     min-width: min(220px, 100%);
-    padding-left: 16px;
+    padding-left: 34px;
+    background: var(--surface)
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath d='M10.5 4a6.5 6.5 0 1 1 0 13a6.5 6.5 0 1 1 0-13M15.5 15.5L20 20' fill='none' stroke='%238a9096' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E")
+        no-repeat 12px center;
 }
 .day > header {
     display: flex;
@@ -693,8 +717,6 @@ button.close {
     height: 26px;
     min-height: 0;
     padding: 0;
-    font-size: 17px;
-    line-height: 1;
     border-radius: 50%;
 }
 .form {
@@ -902,9 +924,15 @@ dialog .form-actions {
     }
     nav.tabs button {
         flex: 1;
-        min-height: 44px;
+        flex-direction: column;
+        gap: 2px;
+        min-height: 50px;
         padding: 0 4px;
-        font-size: 12px;
+        font-size: 11px;
+    }
+    nav.tabs .icon {
+        width: 20px;
+        height: 20px;
     }
     .add-button {
         position: fixed;
@@ -1064,4 +1092,88 @@ button.active {
 .pills.wide button.active.refund {
     background: var(--want);
     color: #fff;
+}
+
+@keyframes rise-in {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+}
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    button,
+    input,
+    select,
+    .amount-input,
+    .checks label {
+        transition:
+            background-color var(--t-fast) var(--ease),
+            border-color var(--t-fast) var(--ease),
+            color var(--t-fast) var(--ease),
+            box-shadow var(--t-fast) var(--ease),
+            transform var(--t-fast) var(--ease);
+    }
+    button:not(.row):active:not(:disabled) {
+        transform: scale(0.96);
+    }
+    .date-popover {
+        animation: rise-in var(--t-base) var(--ease);
+    }
+    .notice[role="status"] {
+        animation: fade-in var(--t-base) var(--ease);
+    }
+
+    /* Dialogs fade and lift in, and play the same in reverse on close; overlay and display keep them
+       on screen until the exit finishes, where the browser supports it. */
+    dialog {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+        transition:
+            opacity var(--t-base) var(--ease),
+            transform var(--t-base) var(--ease),
+            overlay var(--t-base) allow-discrete,
+            display var(--t-base) allow-discrete;
+    }
+    dialog[open] {
+        opacity: 1;
+        transform: none;
+    }
+    dialog::backdrop {
+        background-color: transparent;
+        transition:
+            background-color var(--t-base) var(--ease),
+            overlay var(--t-base) allow-discrete,
+            display var(--t-base) allow-discrete;
+    }
+    dialog[open]::backdrop {
+        background-color: rgba(0, 0, 0, 0.4);
+    }
+    @starting-style {
+        dialog[open] {
+            opacity: 0;
+            transform: translateY(8px) scale(0.98);
+        }
+        dialog[open]::backdrop {
+            background-color: transparent;
+        }
+    }
+
+    @media (max-width: 700px) {
+        dialog {
+            opacity: 1;
+            transform: translateY(100%);
+        }
+        @starting-style {
+            dialog[open] {
+                opacity: 1;
+                transform: translateY(100%);
+            }
+        }
+    }
 }

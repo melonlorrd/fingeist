@@ -1,5 +1,6 @@
 import {confirmDialog, el, field, fill, formDialog, pageHeader} from './dom.js';
 import {openEntryForm} from './entry-form.js';
+import {icon} from './icons.js';
 
 export async function render(container, ctx) {
     const act = async (change) => {
@@ -45,8 +46,8 @@ export async function render(container, ctx) {
         pageHeader(
             'Accounts and people',
             'Balances include every entry and transfer.',
-            el('button', {onclick: () => openAccount(ctx, null, 'person')}, '+ Person'),
-            el('button', {className: 'primary', onclick: () => openAccount(ctx, null, 'own')}, '+ Account'),
+            el('button', {onclick: () => openAccount(ctx, null, 'person')}, icon('plus'), 'Person'),
+            el('button', {className: 'primary', onclick: () => openAccount(ctx, null, 'own')}, icon('plus'), 'Account'),
         ),
         el(
             'article',

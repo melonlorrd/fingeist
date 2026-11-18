@@ -98,6 +98,7 @@ The format is in README → *Data format*. These are the invariants:
   - It works from 360px wide up.
 - In the UI, add children with `el(...)` or `fill(...)`, which skip `null`; `append`/`replaceChildren` print `null` as text. `field()` labels a single input; for a group of buttons or pickers it makes a named group, not a `<label>`.
 - UI shape is one system, defined by the tokens at the top of `src/ui/style.css`: every interactive control is a capsule; containers use only `--r-inner`, `--r-card` and `--r-float`; floating layers (dialogs, popovers) are solid with a hairline edge and a soft shadow. No blur or translucency. Don't add one-off radii or colours.
+- Motion uses the `--t-fast`/`--t-base`/`--ease` tokens, animates only opacity, transform and colour, and lives under `prefers-reduced-motion: no-preference` (charts check it too). Icons are Fingeist's own line icons in `src/ui/icons.js`, always next to a label or an `aria-label`.
 
 ## Adding a chart type
 
