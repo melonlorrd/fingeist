@@ -199,6 +199,9 @@ test('every screen and dialog with a full book', async () => {
     await visitEverything('full');
 
     await click('Ledger', document.querySelector('nav') ?? document);
+    const options = (label) => [...document.querySelectorAll(`main select[aria-label="${label}"] option`)].map((o) => o.textContent);
+    assert.ok(options('Category').includes('Food'), `ledger category filter lists: ${options('Category')}`);
+    assert.ok(options('Account').includes('Cash'), `ledger account filter lists: ${options('Account')}`);
     const firstRow = () => /** @type {HTMLButtonElement} */ (document.querySelector('button.row'));
     firstRow().click();
     await settle();

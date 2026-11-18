@@ -9,13 +9,13 @@ export function el(tag, props = {}, ...children) {
             node.setAttribute(key, value);
         }
     }
-    node.append(...children.flat().filter((child) => child != null));
+    node.append(...children.flat(Infinity).filter((child) => child != null));
     return node;
 }
 
 // Like replaceChildren, but accepts arrays and skips null.
 export function fill(node, ...children) {
-    node.replaceChildren(...children.flat().filter((child) => child != null));
+    node.replaceChildren(...children.flat(Infinity).filter((child) => child != null));
 }
 
 /** A labelled form field. A single input gets a <label>; a group of buttons or pickers gets a named group. */

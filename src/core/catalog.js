@@ -10,9 +10,13 @@ export const NEW_PREFIX = 'new:';
 const PALETTE = ['#2a78d6', '#1baf7a', '#eb6834', '#eda100', '#8a5cd6', '#d64f8a', '#3aa6b9', '#7a8a3c'];
 
 /** @param {import('./workspace.js').Workspace} ws */
+function nextCategoryColor(ws) {
+    return PALETTE[ws.view().project.categoryById.size % PALETTE.length];
+}
+
+/** @param {import('./workspace.js').Workspace} ws */
 export async function createCategory(ws, name, color) {
-    const count = ws.view().project.categoryById.size;
-    const fields = categoryFields({name, color: color || PALETTE[count % PALETTE.length]});
+    const fields = categoryFields({name, color: color || nextCategoryColor(ws)});
     if (sameName(ws.view().project.categories, fields.name)) {
         throw new Error(`There is already a category called "${fields.name}"`);
     }
@@ -89,6 +93,7 @@ export function catalogApi(ws) {
 
     return {
         createCategory: (name, color) => createCategory(ws, name, color),
+        nextCategoryColor: () => nextCategoryColor(ws),
 
         async updateCategory(id, {name, color}) {
             const fields = categoryFields({name, color});

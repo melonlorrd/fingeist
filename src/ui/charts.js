@@ -22,6 +22,9 @@ echarts.use([
 
 const CATEGORY_ROW_HEIGHT = 36;
 const DEFAULT_HEIGHT = 300;
+const CALENDAR_CELL = 18;
+const CALENDAR_LEFT = 40;
+const CALENDAR_RIGHT = 16;
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const BAR = {barMaxWidth: 32, itemStyle: {borderRadius: [4, 4, 0, 0]}};
@@ -60,10 +63,12 @@ const types = {
     top_merchants: {empty: (c) => c.merchants.length === 0, render: renderTopMerchants},
     calendar_heatmap: {
         empty: (c) => c.days.length === 0,
-        render: (body, c, ctx) =>
-            mount(body, calendarHeatmapOption, c, 230, (instance) =>
+        render: (body, c, ctx) => {
+            const canvas = mount(body, calendarHeatmapOption, c, 230, (instance) =>
                 instance.on('click', (p) => ctx.openLedger({from: p.data.value[0], to: p.data.value[0]})),
-            ),
+            );
+            canvas.style.minWidth = `${CALENDAR_LEFT + c.weeks * CALENDAR_CELL + CALENDAR_RIGHT}px`;
+        },
     },
     running_balance: {empty: (c) => c.balance.length === 0, render: (body, c) => mount(body, runningBalanceOption, c)},
     intent_trends: {empty: (c) => c.intentMonths.length === 0, render: renderIntentTrends, notes: intentNote},
@@ -153,6 +158,7 @@ function mount(parent, buildOption, data, height = DEFAULT_HEIGHT, onReady) {
     });
     observer.observe(canvas);
     observers.push(observer);
+    return canvas;
 }
 
 // Amount.size only sets bar and cell sizes; every number the user reads is the text core formatted.
@@ -224,13 +230,12 @@ function calendarHeatmapOption(chart, t) {
     return {
         textStyle: {color: t.muted},
         tooltip: {formatter: (p) => `${escapeHtml(p.data.value[0])}<br>${escapeHtml(p.data.text)}`},
-        visualMap: heatScale(chart.max, t),
+        visualMap: {...heatScale(chart.max, t), left: CALENDAR_LEFT},
         calendar: {
             range: [chart.from, chart.to],
             top: 36,
-            left: 40,
-            right: 16,
-            cellSize: ['auto', 18],
+            left: CALENDAR_LEFT,
+            cellSize: [CALENDAR_CELL, CALENDAR_CELL],
             dayLabel: {firstDay: 1, color: t.muted},
             monthLabel: {color: t.muted},
             yearLabel: {show: false},
@@ -367,7 +372,7 @@ function renderSmallPurchases(body, chart) {
         details.replaceChildren(
             tile('Purchases', String(stat.count)),
             tile('Total', stat.total.text),
-            tile('Share of all expenses', `${stat.share} of ${chart.expenseTotal.text}`),
+            tile('Share of all expenses', `${stat.share} of ${chart.expenseTotal.text} before refunds`),
         );
     };
     show();
@@ -440,7 +445,7 @@ function hourDetails(hour, workdays) {
             'div',
             {className: 'tiles'},
             tile('Occurrences', String(hour.occurrences)),
-            tile(`Share of ${workdays} workdays`, hour.share),
+            tile(`Share of ${workdays} ${workdays === 1 ? 'workday' : 'workdays'}`, hour.share),
             tile('Average', hour.average.text),
             tile('Total', hour.total.text),
         ),

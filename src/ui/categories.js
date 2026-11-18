@@ -162,7 +162,7 @@ function openCategory(ctx, category) {
         title: category ? `Category: ${category.name}` : 'New category',
         fields: [
             field('Name', el('input', {name: 'name', required: true, value: category?.name ?? '', autocomplete: 'off'})),
-            field('Colour', el('input', {name: 'color', type: 'color', value: category?.color || '#2a78d6'})),
+            field('Colour', el('input', {name: 'color', type: 'color', value: category?.color || ctx.app.nextCategoryColor()})),
             category
                 ? field(
                       'Monthly budget',

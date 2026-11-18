@@ -213,6 +213,26 @@ test('calendar_heatmap', () => {
         {date: '2026-11-09', spent: a(1000n, '$10.00')},
     ]);
     assert.deepEqual([c.from, c.to, c.max], ['2026-11-07', '2026-11-09', a(1000n, '$10.00')]);
+    assert.equal(c.weeks, 2, 'Saturday to Monday spans two Monday-first weeks');
+});
+
+test('calendar_heatmap week columns', async (t) => {
+    const cases = [
+        ['no spending', [], 0],
+        ['one day', ['2026-11-18'], 1],
+        ['Monday to Sunday', ['2026-11-16', '2026-11-22'], 1],
+        ['Sunday to Monday', ['2026-11-15', '2026-11-16'], 2],
+        ['a whole year', ['2026-01-01', '2026-12-31'], 53],
+    ];
+    for (const [name, dates, weeks] of cases) {
+        await t.test(name, () => {
+            const c = chart(
+                'calendar_heatmap',
+                dates.map((d) => txn(`${d}T10:00:00Z`, -100n)),
+            );
+            assert.equal(c.weeks, weeks);
+        });
+    }
 });
 
 test('unknown types report an error and every chart handles no data', () => {
@@ -519,6 +539,22 @@ test('summarize', () => {
     assert.deepEqual([cards.income.value.text, cards.income.change], ['$40.00', '+100.00% vs previous period']);
     assert.deepEqual([cards.savings.value.text, cards.savings.change], ['$20.00', '+100.00% vs previous period']);
     assert.deepEqual([cards.average.value.text, cards.average.detail], ['$2.50', 'over 2 expense transactions']);
+});
+
+test('average daily spend counts the days of the period up to today', async (t) => {
+    const b = bookOf(txn('2026-11-18T10:00:00Z', -1800n));
+    const cases = [
+        ['this month so far: 1st to the 18th', {from: '2026-11-01', to: '2026-11-18', today: '2026-11-18'}, '$1.00'],
+        ['future days of the period are left out', {from: '2026-11-01', to: '2026-11-30', today: '2026-11-18'}, '$1.00'],
+        ['a past period counts every day', {from: '2026-11-01', to: '2026-11-30', today: '2026-12-05'}, '$0.60'],
+        ['all time starts at the first entry', {today: '2026-11-20'}, '$6.00'],
+    ];
+    for (const [name, scope, expected] of cases) {
+        await t.test(name, () => {
+            const average = summarize(b.txns, b.project, makeScope(scope)).cards.find((c) => c.key === 'average');
+            assert.equal(average?.value.text, expected);
+        });
+    }
 });
 
 test('summarize comparisons', async (t) => {

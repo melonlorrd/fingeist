@@ -415,6 +415,10 @@ p.error {
     display: flex;
     flex-direction: column;
 }
+/* Its cells have a fixed size, so a long range scrolls inside the card. */
+.chart-calendar_heatmap {
+    overflow-x: auto;
+}
 .chart {
     flex: 1;
     width: 100%;
@@ -940,12 +944,10 @@ dialog .form-actions {
     }
 
     /* Wide charts scroll inside their card instead of squeezing 24 hours into a phone. */
-    .chart-weekday_hour_heatmap,
-    .chart-calendar_heatmap {
+    .chart-weekday_hour_heatmap {
         overflow-x: auto;
     }
-    .chart-weekday_hour_heatmap .chart,
-    .chart-calendar_heatmap .chart {
+    .chart-weekday_hour_heatmap .chart {
         min-width: 600px;
     }
 }
@@ -974,6 +976,13 @@ dialog .form-actions {
     input[type="color"],
     input[type="checkbox"] {
         min-height: 0;
+    }
+    button.close {
+        width: 40px;
+        height: 40px;
+    }
+    details.when summary {
+        padding: 9px 0;
     }
     .amount-input input {
         font-size: 26px;

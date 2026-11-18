@@ -1,5 +1,5 @@
 import {basisPoints, formatBasisPoints} from '../money.js';
-import {addDays, addMonths, cycleOf} from '../time.js';
+import {addDays, addMonths, cycleOf, daysBetween, mondayFirst, weekdayOf} from '../time.js';
 import {amountOf, byText, categoryColor, categoryName, compareBig, maxBig} from './amount.js';
 import {expenseTxns, linesOf, spendingLines} from './lines.js';
 import {bounds, filterRange} from './scope.js';
@@ -77,7 +77,15 @@ export function dailySpending(txns, project) {
         .map(([date, total]) => ({date, spent: amountOf(total, project)}))
         .sort((a, b) => byText(a.date, b.date));
     const peak = days.reduce((max, d) => maxBig(max, d.spent.minor), 0n);
-    return {days, from: days[0]?.date ?? '', to: days.at(-1)?.date ?? '', max: amountOf(peak, project)};
+    const from = days[0]?.date ?? '';
+    const to = days.at(-1)?.date ?? '';
+    return {days, from, to, weeks: from ? weekColumns(from, to) : 0, max: amountOf(peak, project)};
+}
+
+// Monday-first calendar columns from the week holding `from` to the week holding `to`.
+function weekColumns(from, to) {
+    const span = mondayFirst(weekdayOf(from)) + daysBetween(from, to);
+    return (span - (span % 7)) / 7 + 1;
 }
 
 /** The own accounts a balance covers: the one in view, or every own account. */
