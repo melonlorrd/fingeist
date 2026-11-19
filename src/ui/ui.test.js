@@ -273,5 +273,13 @@ test('every screen and dialog with a full book', async () => {
     /** @type {HTMLButtonElement} */ (document.querySelector('button.row')).click();
     await settle();
     assertClean('full: category dialog');
-    await closeDialog();
+    const categoriesBefore = app.boot().categories.length;
+    await click('Delete', dialog());
+    // Browsers fire the category dialog's close event late, after the confirmation has opened; happy-dom doesn't.
+    dialog().dispatchEvent(new Event('close'));
+    await settle();
+    assert.ok(dialog().open, 'the delete confirmation stays open');
+    assert.match(dialog().textContent ?? '', /Are you sure/);
+    await click('Delete', dialog());
+    assert.equal(app.boot().categories.length, categoriesBefore - 1, 'the category is deleted');
 });

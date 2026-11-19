@@ -61,7 +61,12 @@ export function confirmDialog(message, confirmLabel = 'Delete') {
     return new Promise((resolve) => {
         const dialog = dialogElement();
         let settled = false;
-        const onClose = () => settle(false);
+        // A dialog closed just before this one fires its close event late, once this one is open; only a real close cancels.
+        const onClose = () => {
+            if (!dialog.open) {
+                settle(false);
+            }
+        };
         const settle = (answer) => {
             if (settled) {
                 return;
