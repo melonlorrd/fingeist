@@ -46,7 +46,7 @@ export function startShell(app) {
         'button',
         {className: 'primary add-button', onclick: () => openEntryForm(ctx, null)},
         icon('plus'),
-        el('span', {}, 'Add'),
+        el('span', {}, 'Entry'),
     );
     const notice = el('div', {className: 'notice', role: 'status', hidden: true});
     const banner = el('div', {});

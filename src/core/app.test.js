@@ -207,7 +207,11 @@ test('an itemised bill: named items with their own intent, a fee and a discount,
         ],
     });
     const [row] = app.ledger().days[0].rows;
-    assert.deepEqual([row.amount.text, row.intents, row.split, row.category], ['-₹814.00', ['need', 'want'], true, '4 items']);
+    assert.deepEqual(
+        [row.amount.text, row.intents, row.split, row.category],
+        ['-₹814.00', ['need', 'want'], true, 'Snacks, Essentials +1 · 4 items'],
+    );
+    assert.equal(row.categoryColors.length, 3);
     assert.deepEqual(
         app.getEntry(row.id).splits.map((s) => [s.amount, s.intent, s.note]),
         [

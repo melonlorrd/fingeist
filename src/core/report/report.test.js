@@ -660,8 +660,8 @@ test('ledgerView', async (t) => {
     );
     const coffee = day.rows[1];
     assert.deepEqual(
-        [coffee.category, coffee.categoryColor, coffee.intents, coffee.amount.text, coffee.account],
-        ['groceries', '#111111', ['want'], '-$4.50', 'Cash'],
+        [coffee.category, coffee.categoryColors, coffee.intents, coffee.amount.text, coffee.account],
+        ['groceries', ['#111111'], ['want'], '-$4.50', 'Cash'],
     );
     assert.equal(day.rows[0].category, 'Uncategorized');
     assert.deepEqual([data.days[1].rows[0].refund, data.days[1].total.text], [true, '$2.00']);

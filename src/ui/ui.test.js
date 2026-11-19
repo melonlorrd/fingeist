@@ -130,7 +130,7 @@ async function visitEverything(label) {
         assertClean(`${label}: ${tab}`);
     }
     await click('Ledger', document.querySelector('nav') ?? document);
-    await click('Add');
+    await click('Entry');
     assertClean(`${label}: add dialog`);
     for (const type of ['Income', 'Refund', 'Transfer', 'Expense']) {
         await click(type, dialog());

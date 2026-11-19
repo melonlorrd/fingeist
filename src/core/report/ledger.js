@@ -1,5 +1,5 @@
 import {cycleOf} from '../time.js';
-import {accountName, amountOf, byText, categoryColor, categoryName, UNCATEGORIZED} from './amount.js';
+import {accountName, amountOf, byText, categoryColor, categoryName, compareBig, UNCATEGORIZED} from './amount.js';
 import {transferEffect} from './totals.js';
 
 const isIntent = (filter) => ['need', 'want', 'impulse'].includes(filter);
@@ -80,9 +80,32 @@ function netOf({kind, item}, accounts) {
     return item.lines.reduce((sum, l) => sum + (l.kind === 'income' ? l.amount : -l.spend), 0n);
 }
 
+const MAX_ROW_CATEGORIES = 2;
+const MAX_ROW_DOTS = 3;
+
+/** The categories of a transaction's own lines, the one with the most money first; discounts count against theirs. */
+function categoriesOf(lines) {
+    const totals = new Map();
+    for (const l of lines) {
+        totals.set(l.category, (totals.get(l.category) ?? 0n) + l.amount);
+    }
+    const size = (amount) => (amount < 0n ? -amount : amount);
+    return [...totals].sort((a, b) => compareBig(size(b[1]), size(a[1])) || byText(a[0], b[0])).map(([id]) => id);
+}
+
+/** "Food", or "Essentials, Snacks +2 · 9 items" for a bill with several items. */
+function categoryText(project, ids, itemCount) {
+    const names = ids
+        .slice(0, MAX_ROW_CATEGORIES)
+        .map((id) => categoryName(project, id))
+        .join(', ');
+    const more = ids.length > MAX_ROW_CATEGORIES ? ` +${ids.length - MAX_ROW_CATEGORIES}` : '';
+    return itemCount > 1 ? `${names}${more} · ${itemCount} items` : names;
+}
+
 function txnView(t, project) {
     const spending = t.lines.filter((l) => !l.person);
-    const single = spending.length === 1 ? spending[0] : null;
+    const categories = categoriesOf(spending);
     const shares = t.lines
         .filter((l) => l.person)
         .map((l) => `${accountName(project, l.person)} owes ${amountOf(l.amount < 0n ? -l.amount : l.amount, project).text}`);
@@ -96,8 +119,8 @@ function txnView(t, project) {
         note: t.note,
         tags: t.tags,
         intents: [...new Set(t.lines.map((l) => l.intent).filter(Boolean))],
-        category: single ? categoryName(project, single.category) : `${t.splits.length} items`,
-        categoryColor: single ? categoryColor(project, single.category) : '',
+        category: categoryText(project, categories, spending.length),
+        categoryColors: categories.slice(0, MAX_ROW_DOTS).map((id) => categoryColor(project, id)),
         account: payer?.kind === 'person' ? `Paid by ${payer.name}` : accountName(project, t.account),
         people: shares,
         refund: t.refund,
@@ -119,7 +142,7 @@ function transferView(x, project, accounts) {
         tags: [],
         intents: [],
         category: '',
-        categoryColor: '',
+        categoryColors: [],
         account: `${accountName(project, x.from)} → ${accountName(project, x.to)}`,
         people: [],
         refund: false,

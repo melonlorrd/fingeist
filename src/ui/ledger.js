@@ -231,7 +231,13 @@ export async function render(container, ctx) {
         const isSelected = selected.has(row.id);
         const lead = selectable
             ? el('span', {className: `check ${isSelected ? 'on' : ''}`, 'aria-hidden': 'true'})
-            : el('span', {className: 'dot', style: `background:${row.categoryColor || 'var(--muted)'}`});
+            : el(
+                  'span',
+                  {className: 'dots', 'aria-hidden': 'true'},
+                  (row.categoryColors.length ? row.categoryColors : ['']).map((color) =>
+                      el('span', {className: 'dot', style: `background:${color || 'var(--muted)'}`}),
+                  ),
+              );
         const button = el(
             'button',
             {
