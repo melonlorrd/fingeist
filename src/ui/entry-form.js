@@ -1,6 +1,6 @@
 // The add/edit dialog for an expense, income, refund or transfer, and the actions on one entry.
 
-import {closeDialog, datePicker, el, field, formDialog, openDialog} from './dom.js';
+import {closeDialog, datePicker, dayLabel, el, field, formDialog, openDialog} from './dom.js';
 import {accountPicker, categoryPicker, pills, splitEditor} from './pickers.js';
 
 const TYPES = [
@@ -85,12 +85,19 @@ export function openEntryForm(ctx, entry) {
         autocomplete: 'off',
         placeholder: '0.00',
         'aria-label': 'Amount',
+        oninput: () => split.setOnlyAmount(amountInput.value),
     });
     const sumHint = el('small', {className: 'muted'}, 'You can type a sum, e.g. 720-40 or 120+45.50.');
+    // With one item the main field is that item's amount; with several it shows their total and can't be typed in.
     const showTotal = () => {
-        if (type !== 'transfer') {
+        const totalled = type !== 'transfer' && split.count() > 1;
+        if (totalled) {
             amountInput.value = ctx.app.itemsTotal(split.amounts());
+        } else if (type !== 'transfer') {
+            amountInput.value = split.amounts()[0] ?? '';
         }
+        amountInput.readOnly = totalled;
+        sumHint.hidden = totalled;
     };
     const split = splitEditor(ctx, itemsOf(entry), showTotal);
     split.begin();
@@ -139,41 +146,61 @@ export function openEntryForm(ctx, entry) {
         const transfer = type === 'transfer';
         split.showIntents(type === 'expense');
         accountField.hidden = merchantField.hidden = tagsField.hidden = split.node.hidden = transfer;
-        sumHint.hidden = !transfer;
-        amountInput.readOnly = !transfer;
         showTotal();
         fromField.hidden = toField.hidden = !transfer;
+        if (submitButton) {
+            submitButton.textContent = isNew ? `Add ${TYPES.find(([value]) => value === type)?.[1].toLowerCase()}` : 'Save';
+        }
     }
+    /** @type {HTMLButtonElement | null} */
+    let submitButton = null;
     showType();
 
-    formDialog({
-        title: isNew ? 'Add' : 'Edit',
+    const dateInput = datePicker({
+        name: 'date',
+        value: initial.date,
+        label: 'Date',
+        today: ctx.boot.today,
+        placement: 'above',
+        onchange: () => showWhen(),
+    });
+    const clockInput = el('input', {name: 'clock', type: 'time', value: initial.clock, oninput: () => showWhen()});
+    const whenSummary = el('summary', {});
+    const showWhen = () => {
+        const date = /** @type {any} */ (dateInput).value;
+        const day = date === ctx.boot.today ? 'Today' : dayLabel(date);
+        whenSummary.textContent = `${day} · ${clockInput.value || 'time unknown'}`;
+    };
+    showWhen();
+
+    const form = formDialog({
+        title: isNew ? 'New entry' : 'Edit entry',
         fields: [
             typePills,
             el('label', {className: 'amount-input'}, el('span', {}, ctx.boot.currency), amountInput),
             sumHint,
+            merchantField,
+            merchantList,
             accountField,
             fromField,
             toField,
             split.node,
-            merchantField,
-            merchantList,
             field('Note', el('input', {name: 'note', value: entry?.note ?? '', autocomplete: 'off'})),
             tagsField,
             el(
-                'details',
-                {className: 'when'},
-                el('summary', {}, isNew ? 'Date and time default to now (change)' : 'Date and time (change)'),
+                'div',
+                {className: 'field', role: 'group', 'aria-label': 'When'},
+                el('span', {}, 'When'),
                 el(
-                    'div',
-                    {className: 'row-fields'},
+                    'details',
+                    {className: 'when'},
+                    whenSummary,
                     el(
                         'div',
-                        {className: 'field'},
-                        el('span', {}, 'Date'),
-                        datePicker({name: 'date', value: initial.date, label: 'Date', today: ctx.boot.today, placement: 'above'}),
+                        {className: 'row-fields'},
+                        el('div', {className: 'field'}, el('span', {}, 'Date'), dateInput),
+                        field('Time (clear if unknown)', clockInput),
                     ),
-                    field('Time (clear if unknown)', el('input', {name: 'clock', type: 'time', value: initial.clock})),
                 ),
             ),
             repeatField,
@@ -209,6 +236,8 @@ export function openEntryForm(ctx, entry) {
                 }),
             ),
     });
+    submitButton = form.querySelector('button[type="submit"]');
+    showType();
 }
 
 /** A dialog listing entries; picking one opens it. */

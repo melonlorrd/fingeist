@@ -14,6 +14,12 @@ export function amountOf(minor, project) {
     return {minor, text: displayMoney(minor, project.currency, project.decimals), size: Number(minor), negative: minor < 0n};
 }
 
+/** Like amountOf, with a + on positive values, for amounts where the sign is the point. */
+export function signedAmountOf(minor, project) {
+    const amount = amountOf(minor, project);
+    return {...amount, text: minor > 0n ? `+${amount.text}` : amount.text, positive: minor > 0n};
+}
+
 export function compareBig(a, b) {
     return a < b ? -1 : a > b ? 1 : 0;
 }

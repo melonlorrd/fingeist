@@ -1,83 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <style>
-    @media (prefers-color-scheme: dark) {
-      .tile-top { stop-color: #262d31; }
-      .tile-bottom { stop-color: #0b0e0f; }
-      .tile-edge-top { stop-opacity: 0.28; }
-      .tile-edge-bottom { stop-opacity: 0.06; }
-      .glow-centre { stop-opacity: 0.1; }
-      .book-top { stop-color: #8fc0ff; stop-opacity: 1; }
-      .book-bottom { stop-color: #2a6fcb; stop-opacity: 1; }
-      .pages { fill: #9aa5ae; stroke: #6f7a83; }
-      .shade { flood-color: #000000; flood-opacity: 0.6; }
-      .lines { stroke-opacity: 0.95; }
-    }
-  </style>
   <defs>
     <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" class="tile-top" stop-color="#fdfcf9"/>
-      <stop offset="1" class="tile-bottom" stop-color="#e6dfd0"/>
+      <stop offset="0" stop-color="#2f78d2"/>
+      <stop offset="1" stop-color="#1a56a3"/>
     </linearGradient>
-    <linearGradient id="tileEdge" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" class="tile-edge-top" stop-color="#ffffff" stop-opacity="1"/>
-      <stop offset="1" class="tile-edge-bottom" stop-color="#ffffff" stop-opacity="0.35"/>
-    </linearGradient>
-    <radialGradient id="glow" cx="0.3" cy="0.12" r="0.8">
-      <stop offset="0" class="glow-centre" stop-color="#ffffff" stop-opacity="0.9"/>
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="book" x1="0" y1="0" x2="0.6" y2="1">
-      <stop offset="0" class="book-top" stop-color="#5a9cf0"/>
-      <stop offset="1" class="book-bottom" stop-color="#1c5cab"/>
-    </linearGradient>
-    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
-      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="1"/>
-      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.15"/>
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0.7"/>
-    </linearGradient>
-    <linearGradient id="coin" x1="0.2" y1="0" x2="0.8" y2="1">
-      <stop offset="0" stop-color="#ffe9a3" stop-opacity="0.95"/>
-      <stop offset="0.6" stop-color="#f6b93b" stop-opacity="0.9"/>
-      <stop offset="1" stop-color="#d98a12" stop-opacity="0.92"/>
-    </linearGradient>
-    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
-      <feDropShadow class="shade" dx="0" dy="16" stdDeviation="18" flood-color="#3b2f14" flood-opacity="0.28"/>
-    </filter>
-    <clipPath id="tileShape"><rect width="512" height="512" rx="112"/></clipPath>
-    <clipPath id="bookShape"><rect x="118" y="100" width="236" height="300" rx="34"/></clipPath>
-    <clipPath id="coinShape"><circle cx="340" cy="350" r="86"/></clipPath>
   </defs>
-
-  <g clip-path="url(#tileShape)">
-    <rect width="512" height="512" fill="url(#tile)"/>
-    <rect width="512" height="512" fill="url(#glow)"/>
-  </g>
-  <rect x="2" y="2" width="508" height="508" rx="110" fill="none" stroke="url(#tileEdge)" stroke-width="4"/>
-
-  <g filter="url(#shadow)">
-    <rect x="146" y="116" width="226" height="282" rx="28" class="pages" fill="#f4efe4" stroke="#d3c9b5" stroke-width="2"/>
-    <rect x="118" y="100" width="236" height="300" rx="34" fill="url(#book)"/>
-  </g>
-  <g clip-path="url(#bookShape)">
-    <rect x="118" y="100" width="236" height="300" fill="url(#sheen)"/>
-    <rect x="118" y="100" width="42" height="300" fill="#ffffff" fill-opacity="0.16"/>
-  </g>
-  <path d="M160 100v300" stroke="#ffffff" stroke-opacity="0.4" stroke-width="2"/>
-  <rect x="119.5" y="101.5" width="233" height="297" rx="32.5" fill="none" stroke="url(#rim)" stroke-width="3"/>
-  <path class="lines" d="M196 168h116M196 206h84M196 244h100" stroke="#ffffff" stroke-opacity="0.88" stroke-width="15" stroke-linecap="round"/>
-
-  <g filter="url(#shadow)">
-    <circle cx="340" cy="350" r="86" fill="url(#coin)"/>
-  </g>
-  <g clip-path="url(#coinShape)">
-    <ellipse cx="312" cy="300" rx="90" ry="60" fill="#ffffff" fill-opacity="0.3"/>
-  </g>
-  <circle cx="340" cy="350" r="84.5" fill="none" stroke="url(#rim)" stroke-width="3"/>
-  <circle cx="340" cy="350" r="62" fill="none" stroke="#a86808" stroke-opacity="0.35" stroke-width="4"/>
-  <path d="M318 322h44M318 342h44M332 322c22 0 30 10 30 20s-8 20-30 20h-14l40 34" fill="none" stroke="#8d5606" stroke-opacity="0.85" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M286 296a78 78 0 0 1 68-28" fill="none" stroke="#ffffff" stroke-opacity="0.85" stroke-width="8" stroke-linecap="round"/>
+  <rect width="512" height="512" rx="112" fill="url(#tile)"/>
+  <rect x="6" y="6" width="500" height="500" rx="106" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="12"/>
+  <path d="M128 148h256M128 240h188M128 332h104" stroke="#ffffff" stroke-width="44" stroke-linecap="round"/>
+  <circle cx="368" cy="368" r="96" fill="#f6b93b" stroke="#7a4a05" stroke-width="16"/>
+  <circle cx="368" cy="368" r="56" fill="none" stroke="#c47f10" stroke-width="14"/>
 </svg>

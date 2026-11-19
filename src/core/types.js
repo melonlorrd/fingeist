@@ -40,7 +40,7 @@
  *   devices: Record<string, string>, problems: Problem[]}} Book
  *
  * A money value for the screen: text to show, size only for drawing.
- * @typedef {{minor: bigint, text: string, size: number, negative: boolean}} Amount
+ * @typedef {{minor: bigint, text: string, size: number, negative: boolean, positive?: boolean}} Amount
  *
  * @typedef {{from: string, to: string, today: string, account: string}} Scope
  *

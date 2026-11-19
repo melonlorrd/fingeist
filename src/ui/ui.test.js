@@ -142,6 +142,11 @@ async function visitEverything(label) {
         buttons('Remove', dialog()).every((b) => b.hidden),
         'the only item cannot be removed',
     );
+    const main = /** @type {HTMLInputElement} */ (dialog().querySelector('input[name="amount"]'));
+    assert.equal(main.readOnly, false, 'with one item the main amount is typed in');
+    main.value = '120+45';
+    main.dispatchEvent(new Event('input'));
+    assert.equal(itemAmounts()[0].value, '120+45', 'the main amount is the only item');
     await click('Item', dialog());
     itemAmounts()[0].value = '720';
     itemAmounts()[1].value = '-40';
@@ -225,6 +230,13 @@ test('every screen and dialog with a full book', async () => {
     const options = (label) => [...document.querySelectorAll(`main select[aria-label="${label}"] option`)].map((o) => o.textContent);
     assert.ok(options('Category').includes('Food'), `ledger category filter lists: ${options('Category')}`);
     assert.ok(options('Account').includes('Cash'), `ledger account filter lists: ${options('Account')}`);
+    const categoryFilter = /** @type {HTMLSelectElement} */ (document.querySelector('main select[aria-label="Category"]'));
+    categoryFilter.value = ids.Food;
+    categoryFilter.dispatchEvent(new Event('change'));
+    await settle();
+    assert.ok(document.querySelector('button[aria-label="Remove filter: Food"]'), 'a chosen filter shows as a chip');
+    await click('Clear all');
+    assert.equal(document.querySelector('.active-filters'), null, 'Clear all removes every filter');
     const firstRow = () => /** @type {HTMLButtonElement} */ (document.querySelector('button.row'));
     firstRow().click();
     await settle();

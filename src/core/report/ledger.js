@@ -1,5 +1,5 @@
 import {cycleOf} from '../time.js';
-import {accountName, amountOf, byText, categoryColor, categoryName, compareBig, UNCATEGORIZED} from './amount.js';
+import {accountName, amountOf, byText, categoryColor, categoryName, compareBig, signedAmountOf, UNCATEGORIZED} from './amount.js';
 import {transferEffect} from './totals.js';
 
 const isIntent = (filter) => ['need', 'want', 'impulse'].includes(filter);
@@ -126,7 +126,7 @@ function txnView(t, project) {
         refund: t.refund,
         split: t.splits.length > 0,
         recurring: t.recurring !== '',
-        amount: amountOf(t.amount, project),
+        amount: signedAmountOf(t.amount, project),
         signed: true,
     };
 }
@@ -148,7 +148,7 @@ function transferView(x, project, accounts) {
         refund: false,
         split: false,
         recurring: x.recurring !== '',
-        amount: amountOf(accounts ? transferEffect(x, accounts) : x.amount, project),
+        amount: accounts ? signedAmountOf(transferEffect(x, accounts), project) : amountOf(x.amount, project),
         signed: Boolean(accounts),
     };
 }
@@ -178,7 +178,7 @@ export function ledgerView(txns, transfers, project, q = {}) {
             net = 0n;
         }
         net += netOf(row, accounts);
-        day.total = amountOf(net, project);
+        day.total = signedAmountOf(net, project);
         day.rows.push(row.kind === 'txn' ? txnView(row.item, project) : transferView(row.item, project, accounts));
     }
 
@@ -198,6 +198,7 @@ export function ledgerView(txns, transfers, project, q = {}) {
         count: matching.length,
         spent: amountOf(spent, project),
         income: amountOf(income, project),
+        net: signedAmountOf(income - spent, project),
     };
 }
 

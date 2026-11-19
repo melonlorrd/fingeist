@@ -4,7 +4,7 @@
 
 const CACHE = 'fingeist';
 const NAVIGATION_TIMEOUT_MS = 3000;
-const STATIC = ['./', './manifest.webmanifest', './icon.svg', './apple-touch-icon.png', './icon-512.png'];
+const STATIC = ['./', './manifest.webmanifest', './icon.svg', './apple-touch-icon.png', './icon-512.png', './icon-maskable-512.png'];
 
 function assetsOf(html) {
     return [...html.matchAll(/(?:src|href)="(\.\/assets\/[^"]+)"/g)].map((m) => m[1]);

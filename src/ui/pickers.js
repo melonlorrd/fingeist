@@ -146,10 +146,11 @@ export function splitEditor(ctx, parts, onChange) {
     let intentsShown = true;
     let ready = false;
     const changed = () => ready && onChange();
-    // A bill always keeps at least one item.
+    // A bill always keeps at least one item; while it has one, its amount is typed in the form's main amount field.
     const showRemoves = () => {
         for (const p of entries) {
             p.removeButton.hidden = entries.length === 1;
+            p.amount.hidden = entries.length === 1;
         }
     };
     const addPart = (part = {}, person = false) => {
@@ -210,7 +211,7 @@ export function splitEditor(ctx, parts, onChange) {
         el(
             'small',
             {className: 'muted'},
-            "The amount is the total of the items. Fees are items too; a discount is a negative item, like -40. A person's share is money they owe you (or you them, for income). Amounts can be sums, like 720-40.",
+            "With more than one item, the amount is their total. Fees are items too; a discount is a negative item, like -40. A person's share is money they owe you (or you them, for income). Amounts can be sums, like 720-40.",
         ),
         rows,
         el(
@@ -223,6 +224,13 @@ export function splitEditor(ctx, parts, onChange) {
     return {
         node,
         amounts: () => entries.map((p) => p.amount.value),
+        count: () => entries.length,
+        /** Sets the amount of the only item, as typed in the main amount field. */
+        setOnlyAmount(value) {
+            if (entries.length === 1) {
+                entries[0].amount.value = value;
+            }
+        },
         /** Starts an empty bill with one blank item. */
         begin() {
             if (entries.length === 0) {

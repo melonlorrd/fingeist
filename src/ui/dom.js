@@ -99,7 +99,8 @@ const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const pad = (n) => String(n).padStart(2, '0');
 const isoDate = (year, month, day) => `${year}-${pad(month + 1)}-${pad(day)}`;
 
-function dateText(iso) {
+/** "14 Nov 2026" for 2026-11-14. */
+export function dateText(iso) {
     const [year, month, day] = iso.split('-').map(Number);
     return new Date(year, month - 1, day).toLocaleDateString(undefined, {day: 'numeric', month: 'short', year: 'numeric'});
 }
@@ -216,7 +217,7 @@ export function pageHeader(title, subtitle, ...actions) {
     return el(
         'header',
         {className: 'card page-head'},
-        el('div', {}, el('h1', {}, title), el('p', {className: 'muted'}, subtitle)),
+        el('div', {}, el('h1', {}, title), subtitle ? el('p', {className: 'muted'}, subtitle) : null),
         el('div', {className: 'head-actions'}, actions),
     );
 }

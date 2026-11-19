@@ -1,6 +1,7 @@
 import {budgetSummary} from './categories.js';
 import * as charts from './charts.js';
 import {datePicker, el, fill, pageHeader} from './dom.js';
+import {icon} from './icons.js';
 
 const PRESETS = [
     ['this_month', 'This month'],
@@ -9,15 +10,29 @@ const PRESETS = [
     ['three_months', '3 months'],
     ['year_to_date', 'Year'],
     ['all_time', 'All time'],
+    ['', 'Custom'],
 ];
 
-const range = {from: '', to: '', preset: 'all_time', account: ''};
+// Charts are grouped by the question they answer; a chart not listed here goes in the last group.
+const GROUPS = [
+    ['Cash flow', ['monthly_totals', 'running_balance']],
+    ['Where it goes', ['by_category', 'category_compare', 'top_merchants']],
+    ['Habits', ['intent_trends', 'small_purchases', 'workday_routine', 'weekday_hour_heatmap']],
+    ['Calendar', ['calendar_heatmap', 'no_spend_calendar']],
+];
+
+const range = {from: '', to: '', preset: 'this_month', account: ''};
+let rangeSet = false;
 
 export function disposeCharts() {
     charts.disposeCharts();
 }
 
 export async function render(container, ctx) {
+    if (!rangeSet) {
+        Object.assign(range, ctx.app.presetRange(range.preset));
+        rangeSet = true;
+    }
     const picker = (name, value, label) =>
         datePicker({
             name,
@@ -43,7 +58,7 @@ export async function render(container, ctx) {
                     className: range.preset === name ? 'active' : '',
                     'aria-pressed': String(range.preset === name),
                     onclick: () => {
-                        Object.assign(range, ctx.app.presetRange(name), {preset: name});
+                        Object.assign(range, name ? ctx.app.presetRange(name) : {}, {preset: name});
                         ctx.rerender();
                     },
                 },
@@ -76,25 +91,24 @@ export async function render(container, ctx) {
                 el('small', {className: 'label'}, card.label),
                 el('strong', {className: 'big'}, card.value.text),
                 card.detail ? el('small', {className: 'muted'}, card.detail) : null,
-                el('small', {className: 'change'}, card.change),
+                el('small', {className: `change ${card.trend}`}, card.direction ? icon(card.direction) : null, el('span', {}, card.change)),
             ),
         ),
     );
-    const chartsSection = el('section', {className: 'charts'});
+    const chartsSection = el('div', {className: 'chart-groups'});
 
     fill(
         container,
         pageHeader(
             'Dashboard',
-            'Habits, cash flow and spending patterns',
+            '',
             presets,
             el(
                 'div',
                 {className: 'range-pickers'},
-                el('span', {className: 'muted'}, 'From'),
-                fromPicker,
-                el('span', {className: 'muted'}, 'To'),
-                toPicker,
+                range.preset === ''
+                    ? [el('span', {className: 'muted'}, 'From'), fromPicker, el('span', {className: 'muted'}, 'To'), toPicker]
+                    : null,
                 account,
             ),
         ),
@@ -102,5 +116,13 @@ export async function render(container, ctx) {
         ctx.boot.budgets.rows.length > 0 ? el('article', {className: 'card'}, budgetSummary(ctx.boot.budgets)) : null,
         chartsSection,
     );
-    charts.renderCharts(chartsSection, data.charts, ctx);
+    const groupOf = (type) => GROUPS.findIndex(([, types]) => types.includes(type));
+    for (const [index, [title]] of GROUPS.entries()) {
+        const inGroup = data.charts.filter((c) => (groupOf(c.type) === -1 ? GROUPS.length - 1 : groupOf(c.type)) === index);
+        if (inGroup.length > 0) {
+            const grid = el('div', {className: 'charts'});
+            chartsSection.append(el('section', {className: 'chart-group'}, el('h2', {className: 'group-title'}, title), grid));
+            charts.renderCharts(grid, inGroup, ctx);
+        }
+    }
 }

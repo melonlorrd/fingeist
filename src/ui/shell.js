@@ -48,17 +48,15 @@ export function startShell(app) {
         icon('plus'),
         el('span', {}, 'Entry'),
     );
-    const notice = el('div', {className: 'notice', role: 'status', hidden: true});
+    const notice = el('div', {className: 'notice toast', role: 'status', 'aria-live': 'polite', hidden: true});
     const banner = el('div', {});
     const view = el('main', {});
-    /** @type {HTMLElement} */ (document.getElementById('app')).append(
-        el(
-            'header',
-            {className: 'topbar'},
-            el('div', {className: 'topbar-inner'}, el('div', {className: 'brand-row'}, title, syncState), nav, addButton),
-        ),
-        el('div', {className: 'page'}, notice, banner, view),
+    const topbar = el(
+        'header',
+        {className: 'topbar'},
+        el('div', {className: 'topbar-inner'}, el('div', {className: 'brand-row'}, title, syncState), nav, addButton),
     );
+    /** @type {HTMLElement} */ (document.getElementById('app')).append(topbar, el('div', {className: 'page'}, banner, view), notice);
 
     const ctx = {
         app,
@@ -90,7 +88,7 @@ export function startShell(app) {
         clearTimeout(noticeTimer);
         fill(
             notice,
-            text,
+            el('span', {}, text),
             action
                 ? el(
                       'button',
@@ -103,6 +101,7 @@ export function startShell(app) {
                       action.label,
                   )
                 : null,
+            el('button', {className: 'close quiet', 'aria-label': 'Dismiss', onclick: () => showNotice('')}, icon('close')),
         );
         notice.classList.toggle('error', isError);
         notice.hidden = !text;
@@ -283,7 +282,9 @@ export function startShell(app) {
         node instanceof HTMLElement && (node.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(node.tagName));
 
     window.addEventListener('keydown', async (event) => {
-        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'n' && canUseShortcuts()) {
+        const isN = event.key.toLowerCase() === 'n' && !event.altKey;
+        // Some browsers keep Cmd/Ctrl+N for a new window, so N alone works too.
+        if (isN && (event.metaKey || event.ctrlKey || !isTextEntry(event.target)) && canUseShortcuts()) {
             event.preventDefault();
             openEntryForm(ctx, null);
         } else if (event.key === '/' && !isTextEntry(event.target) && canUseShortcuts()) {
@@ -329,6 +330,21 @@ export function startShell(app) {
         attributeFilter: ['class', 'hidden'],
     });
     window.addEventListener('resize', placeSoon);
+
+    // Sticky day headers sit just under the top bar, whose height changes with the screen and safe area.
+    new ResizeObserver(() => document.documentElement.style.setProperty('--topbar-h', `${topbar.offsetHeight}px`)).observe(topbar);
+
+    // On phones the floating Add button shrinks to a round + while scrolling down, so it covers less.
+    let lastScroll = 0;
+    window.addEventListener(
+        'scroll',
+        () => {
+            const y = window.scrollY;
+            addButton.classList.toggle('compact', y > lastScroll && y > 80);
+            lastScroll = y;
+        },
+        {passive: true},
+    );
     document.addEventListener('pointerdown', rememberTap, true);
 
     refresh().then(syncNow);

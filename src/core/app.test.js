@@ -275,7 +275,7 @@ test('the form always sends items: one unnamed item is an ordinary entry, a name
         ['Food', ['need'], '-₹125.00', [], 'need'],
     );
     assert.deepEqual([shop.category, shop.intents, app.getEntry(shop.id).splits.map((s) => s.note)], ['Home', ['need'], ['Nail clipper']]);
-    assert.deepEqual([pay.amount.text, pay.intents, app.getEntry(pay.id).intent], ['₹500.00', [], '']);
+    assert.deepEqual([pay.amount.text, pay.intents, app.getEntry(pay.id).intent], ['+₹500.00', [], '']);
     await assert.rejects(app.saveEntry({...expense, splits: [{category: '', amount: '-5'}]}), /more than zero/);
     await assert.rejects(
         app.saveEntry({

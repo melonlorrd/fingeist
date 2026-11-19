@@ -9,14 +9,28 @@
     --on-accent: #ffffff;
     --tint: #e3ebf6;
     --danger: #b3261e;
-    --income: #2a78d6;
+    --income: #1f7a50;
     --expense: #eb6834;
     --need: #2a78d6;
-    --want: #1baf7a;
+    --want: #b03f8f;
     --impulse: #eb6834;
     --heat-low: #cde2fb;
     --heat-high: #1c5cab;
+    /* Solid fills for selected pills, deep enough that --on-tone text passes WCAG AA on them. */
+    --tone-expense: #c4501f;
+    --tone-income: #1f7a50;
+    --tone-need: #1f67c2;
+    --tone-want: #b03f8f;
+    --tone-impulse: #c4501f;
+    --on-tone: #ffffff;
     color-scheme: light dark;
+
+    /* Safe areas: the notch or Dynamic Island, the home indicator, and the sides of a phone in landscape. */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --gutter: 20px;
 
     /* Shape: controls are capsules; containers use only these three radii. */
     --r-inner: 10px;
@@ -42,21 +56,27 @@
 @media (prefers-color-scheme: dark) {
     :root {
         --bg: #121516;
-        --surface: #1a1d1d;
+        --surface: #1f2323;
         --text: #ece9e2;
         --muted: #a2a7a8;
-        --line: #2d3333;
+        --line: #323939;
         --accent: #6da7ec;
         --on-accent: #0b1a2c;
         --tint: #223247;
         --danger: #ff8a80;
-        --income: #3987e5;
+        --income: #3fb57f;
         --expense: #d95926;
         --need: #3987e5;
-        --want: #199e70;
+        --want: #d77ccb;
         --impulse: #d95926;
         --heat-low: #203a5c;
         --heat-high: #6da7ec;
+        --tone-expense: #d95926;
+        --tone-income: #3fb57f;
+        --tone-need: #3987e5;
+        --tone-want: #d77ccb;
+        --tone-impulse: #d95926;
+        --on-tone: #0b1a2c;
     }
 }
 
@@ -69,12 +89,17 @@
     display: none !important;
 }
 
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
 body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
+    -webkit-tap-highlight-color: transparent;
     font:
-        13.5px / 1.45 -apple-system,
+        14px / 1.45 -apple-system,
         BlinkMacSystemFont,
         "SF Pro Text",
         system-ui,
@@ -90,13 +115,14 @@ p {
     margin: 0;
 }
 h1 {
-    font-size: 18px;
-    font-weight: 650;
-    letter-spacing: -0.01em;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
 }
 h2 {
-    font-size: 14.5px;
+    font-size: 15px;
     font-weight: 650;
+    letter-spacing: -0.005em;
 }
 h3 {
     font-size: 13px;
@@ -128,12 +154,12 @@ small {
     z-index: 5;
     background: var(--bg);
     border-bottom: 1px solid var(--line);
-    padding-top: env(safe-area-inset-top);
+    padding: var(--safe-top) var(--safe-right) 0 var(--safe-left);
 }
 .topbar-inner {
     max-width: 1080px;
     margin: 0 auto;
-    padding: 8px 20px;
+    padding: 8px var(--gutter);
     display: flex;
     flex-wrap: wrap;
     gap: 6px 16px;
@@ -153,7 +179,7 @@ small {
 .page {
     max-width: 1080px;
     margin: 0 auto;
-    padding: 16px 20px calc(48px + env(safe-area-inset-bottom));
+    padding: 16px calc(var(--gutter) + var(--safe-right)) calc(48px + var(--safe-bottom)) calc(var(--gutter) + var(--safe-left));
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -308,24 +334,24 @@ input[type="checkbox"] {
     padding: 5px 12px;
 }
 .pills.wide button.active.expense {
-    --tone: var(--expense);
-    color: #fff;
+    --tone: var(--tone-expense);
+    color: var(--on-tone);
 }
 .pills.wide button.active.income {
-    --tone: var(--income);
-    color: #fff;
+    --tone: var(--tone-income);
+    color: var(--on-tone);
 }
 .pills.wide button.active.need {
-    --tone: var(--need);
-    color: #fff;
+    --tone: var(--tone-need);
+    color: var(--on-tone);
 }
 .pills.wide button.active.want {
-    --tone: var(--want);
-    color: #fff;
+    --tone: var(--tone-want);
+    color: var(--on-tone);
 }
 .pills.wide button.active.impulse {
-    --tone: var(--impulse);
-    color: #fff;
+    --tone: var(--tone-impulse);
+    color: var(--on-tone);
 }
 .pills.wide button.active.transfer {
     --tone: var(--accent);
@@ -407,6 +433,32 @@ nav.pills,
 .notice.error {
     border-color: var(--danger);
 }
+/* Notices float at the bottom of the screen, so Undo is in view however far the page is scrolled. */
+.toast {
+    position: fixed;
+    z-index: 20;
+    left: 50%;
+    bottom: calc(20px + var(--safe-bottom));
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: min(520px, calc(100vw - 32px - var(--safe-left) - var(--safe-right)));
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 8px 8px 16px;
+    border: 0.5px solid var(--hairline);
+    border-radius: var(--r-float);
+    box-shadow: var(--shadow-float);
+}
+.toast > span {
+    flex: 1;
+}
+.notice.toast button {
+    margin-left: 0;
+}
+.toast button.close {
+    flex: none;
+}
 .notice.error,
 p.error {
     color: var(--danger);
@@ -428,22 +480,54 @@ p.error {
     font-size: 11px;
     color: var(--muted);
 }
+.summary-card .label {
+    margin-bottom: 2px;
+}
 .big {
-    font-size: 20px;
-    font-weight: 650;
+    font-size: 28px;
+    line-height: 1.15;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
 }
 .change {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-top: 4px;
     color: var(--muted);
 }
-.change.up {
+.change .icon {
+    width: 13px;
+    height: 13px;
+    stroke-width: 2.2;
+}
+.change.better {
     color: var(--income);
 }
-.change.down {
+.change.worse {
     color: var(--expense);
 }
 
+.chart-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+.chart-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.group-title {
+    padding: 0 4px;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+}
 .charts {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr));
@@ -478,6 +562,7 @@ p.error {
     display: flex;
     flex-direction: column;
     gap: 1px;
+    font-variant-numeric: tabular-nums;
     min-width: 110px;
     padding: 8px 12px;
     border: 1px solid var(--line);
@@ -588,11 +673,69 @@ ul.plain {
         url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath d='M10.5 4a6.5 6.5 0 1 1 0 13a6.5 6.5 0 1 1 0-13M15.5 15.5L20 20' fill='none' stroke='%238a9096' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E")
         no-repeat 12px center;
 }
+.filter-bar > button .count {
+    min-width: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+}
+.active-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+button.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding-right: 8px;
+    background: var(--tint);
+    border-color: transparent;
+    color: var(--accent);
+    font-weight: 600;
+}
+.filter-chip .icon {
+    width: 14px;
+    height: 14px;
+}
+.stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 20px;
+    margin: 0;
+    flex: 1;
+}
+.stats dt {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+}
+.stats dd {
+    margin: 0;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.stats dd.income {
+    color: var(--income);
+}
+/* Each day's header stays under the top bar while its entries scroll past. */
 .day > header {
+    position: sticky;
+    top: var(--topbar-h, 0px);
+    z-index: 2;
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    padding: 0 8px 4px;
+    padding: 8px 8px 6px;
+    background: var(--bg);
 }
 .day {
     margin-bottom: 2px;
@@ -605,6 +748,16 @@ ul.rows {
 ul.rows.card {
     padding: 0;
     overflow: hidden;
+}
+/* A list inside a card runs edge to edge under the card's text, so it isn't a box in a box. */
+.card > ul.rows.card {
+    margin: 10px -16px 0;
+    border: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 0;
+}
+.card > ul.rows.card:last-child {
+    margin-bottom: -14px;
 }
 ul.rows > li + li {
     border-top: 1px solid var(--line);
@@ -624,6 +777,30 @@ button.row {
 }
 button.row.selected {
     background: var(--tint);
+}
+button.row:has(> .avatar) {
+    grid-template-columns: 30px minmax(0, 1fr) auto auto;
+}
+.avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--tint);
+    color: var(--accent);
+    font-weight: 650;
+}
+.row .what small {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.row .figure {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
 }
 .check {
     width: 16px;
@@ -652,7 +829,7 @@ button.row.selected {
     white-space: nowrap;
 }
 .amount.expense {
-    color: var(--expense);
+    color: var(--text);
 }
 .amount.income {
     color: var(--income);
@@ -708,7 +885,7 @@ button.row.selected {
     margin: 0;
 }
 .sync-state.idle .dot {
-    background: var(--want);
+    background: var(--income);
 }
 .sync-state.syncing .dot,
 .sync-state.local .dot,
@@ -734,8 +911,9 @@ dialog {
     box-shadow: var(--shadow-float);
     padding: 20px;
     width: min(500px, calc(100vw - 32px));
-    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px - var(--safe-top) - var(--safe-bottom));
     overflow-y: auto;
+    overscroll-behavior: contain;
 }
 dialog::backdrop {
     background: rgba(0, 0, 0, 0.4);
@@ -818,9 +996,22 @@ button.close {
     font-weight: 600;
 }
 details.when summary {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 4px 14px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
     cursor: pointer;
-    color: var(--accent);
-    margin-bottom: 8px;
+    list-style: none;
+    font-variant-numeric: tabular-nums;
+}
+details.when summary::-webkit-details-marker {
+    display: none;
+}
+details.when[open] summary {
+    margin-bottom: 10px;
+    border-color: var(--accent);
 }
 .balance-rows {
     display: flex;
@@ -858,7 +1049,7 @@ dialog .form-actions {
     position: sticky;
     bottom: -20px;
     margin: 0 -20px -20px;
-    padding: 10px 20px calc(10px + env(safe-area-inset-bottom));
+    padding: 10px 20px calc(10px + var(--safe-bottom));
     background: var(--surface);
     border-top: 1px solid var(--line);
 }
@@ -904,16 +1095,68 @@ dialog .form-actions {
     }
 }
 
-/* Phones and narrow windows: the nav moves to the bottom, Add floats above it, dialogs become sheets. */
-@media (max-width: 700px) {
-    .page {
-        padding: 10px 12px calc(132px + env(safe-area-inset-bottom));
+/* Between phone and desktop widths, such as a tablet or a phone in landscape, the nav shows icons only so
+   the top bar stays on one line; each label stays readable to screen readers. */
+@media (min-width: 701px) and (max-width: 980px) {
+    nav.tabs button {
+        padding: 4px 10px;
+    }
+    nav.tabs button > span,
+    .sync-state > :not(.dot) {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
     }
     .topbar-inner {
-        padding: 8px 12px;
+        flex-wrap: nowrap;
+    }
+}
+
+/* Phones and narrow windows: the nav moves to the bottom, Add floats above it, dialogs become sheets. */
+@media (max-width: 700px) {
+    :root {
+        --gutter: 12px;
+    }
+    .page {
+        padding-top: 10px;
+        padding-bottom: calc(132px + var(--safe-bottom));
     }
     .card {
         padding: 12px 14px;
+    }
+    .card > ul.rows.card {
+        margin-left: -14px;
+        margin-right: -14px;
+    }
+    .card > ul.rows.card:last-child {
+        margin-bottom: -12px;
+    }
+    h1 {
+        font-size: 20px;
+    }
+    .toast {
+        bottom: calc(136px + var(--safe-bottom));
+    }
+    /* Many categories scroll sideways in two rows instead of pushing the form down. */
+    .chips {
+        display: grid;
+        grid-auto-flow: column;
+        grid-template-rows: repeat(2, auto);
+        justify-content: start;
+        overflow-x: auto;
+        scrollbar-width: none;
+        margin: 0 -2px;
+        padding: 0 2px 2px;
+    }
+    .chips .chip {
+        white-space: nowrap;
+    }
+    .chips > input {
+        grid-row: 1 / span 2;
+        min-width: 180px;
     }
     .two-columns {
         grid-template-columns: 1fr;
@@ -923,7 +1166,10 @@ dialog .form-actions {
         gap: 8px;
     }
     .big {
-        font-size: 17px;
+        font-size: clamp(18px, 5.6vw, 24px);
+    }
+    .summary-card .change {
+        font-size: 11.5px;
     }
     .page-head {
         flex-direction: column;
@@ -953,7 +1199,7 @@ dialog .form-actions {
         border-top: 1px solid var(--line);
         border-radius: 0;
         background: var(--surface);
-        padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+        padding: 6px calc(6px + var(--safe-right)) calc(6px + var(--safe-bottom)) calc(6px + var(--safe-left));
     }
     nav.tabs button {
         flex: 1;
@@ -969,22 +1215,44 @@ dialog .form-actions {
     }
     .add-button {
         position: fixed;
-        right: 16px;
-        bottom: calc(70px + env(safe-area-inset-bottom));
+        right: calc(16px + var(--safe-right));
+        bottom: calc(74px + var(--safe-bottom));
         z-index: 11;
-        min-height: 48px;
+        min-height: 52px;
+        min-width: 52px;
         padding: 0 22px;
         font-size: 16px;
         box-shadow: var(--shadow-float);
+    }
+    .add-button .icon {
+        width: 20px;
+        height: 20px;
+    }
+    .add-button.compact {
+        padding: 0;
+    }
+    .add-button.compact > span {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
     }
 
     dialog {
         margin: auto 0 0;
         width: 100%;
         max-width: 100%;
-        max-height: 92dvh;
+        max-height: calc(100dvh - var(--safe-top) - 12px);
         border-radius: var(--r-float) var(--r-float) 0 0;
-        padding: 16px 16px 20px;
+        padding: 16px calc(16px + var(--safe-right)) 20px calc(16px + var(--safe-left));
+    }
+    dialog .form-actions {
+        margin-left: calc(-16px - var(--safe-left));
+        margin-right: calc(-16px - var(--safe-right));
+        padding-left: calc(16px + var(--safe-left));
+        padding-right: calc(16px + var(--safe-right));
     }
 
     button.row {
@@ -999,9 +1267,15 @@ dialog .form-actions {
         grid-row: 2;
         justify-content: flex-start;
     }
-    .row .amount {
+    .row .figure {
         grid-column: 3;
         grid-row: 1 / span 2;
+    }
+    button.row:has(> .avatar) {
+        grid-template-columns: 30px minmax(0, 1fr) auto;
+    }
+    .stats {
+        gap: 4px 14px;
     }
 
     /* Wide charts scroll inside their card instead of squeezing 24 hours into a phone. */
@@ -1081,6 +1355,7 @@ dialog .form-actions {
     border-top: 1px solid var(--line);
 }
 .budget-line {
+    font-variant-numeric: tabular-nums;
     display: flex;
     justify-content: space-between;
     gap: 10px;
@@ -1097,7 +1372,7 @@ dialog .form-actions {
     display: block;
     height: 100%;
     border-radius: 999px;
-    background: var(--want);
+    background: var(--income);
 }
 .budget-list li.over .meter span {
     background: var(--expense);
@@ -1123,8 +1398,8 @@ button.active {
     color: var(--accent);
 }
 .pills.wide button.active.refund {
-    --tone: var(--want);
-    color: #fff;
+    --tone: var(--tone-income);
+    color: var(--on-tone);
 }
 
 @keyframes rise-in {

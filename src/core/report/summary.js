@@ -21,6 +21,15 @@ function changeText(now, before, hasPrevious) {
     return `${formatBasisPoints(basisPoints(now - before, before < 0n ? -before : before), true)} vs previous period`;
 }
 
+/** Which way the value moved, and whether that is good news: more spending is worse, more income is better. */
+function trendOf(now, before, hasPrevious, moreIsBetter) {
+    if (!hasPrevious || now === before) {
+        return {direction: '', trend: ''};
+    }
+    const up = now > before;
+    return {direction: up ? 'up' : 'down', trend: up === moreIsBetter ? 'better' : 'worse'};
+}
+
 /**
  * The dashboard cards for the scope, each compared with the previous period of the same length.
  * @param {import('../types.js').Txn[]} txns of the account in view
@@ -37,19 +46,27 @@ export function summarize(txns, project, scope) {
     const hasPrevious = earlier.length > 0;
 
     const average = (t) => divideRounded(t.spent, days);
-    const card = (key, label, now, then, detail = '') => ({
+    const card = (key, label, now, then, moreIsBetter, detail = '') => ({
         key,
         label,
         value: amountOf(now, project),
         detail,
         change: changeText(now, then, hasPrevious),
+        ...trendOf(now, then, hasPrevious, moreIsBetter),
     });
     return {
         cards: [
-            card('spent', 'Total spent', current.spent, before.spent),
-            card('income', 'Total income', current.income, before.income),
-            card('savings', 'Net savings', current.income - current.spent, before.income - before.spent),
-            card('average', 'Average daily spend', average(current), average(before), `over ${current.expenseCount} expense transactions`),
+            card('spent', 'Total spent', current.spent, before.spent, false),
+            card('income', 'Total income', current.income, before.income, true),
+            card('savings', 'Net savings', current.income - current.spent, before.income - before.spent, true),
+            card(
+                'average',
+                'Average daily spend',
+                average(current),
+                average(before),
+                false,
+                `over ${current.expenseCount} expense transactions`,
+            ),
         ],
     };
 }

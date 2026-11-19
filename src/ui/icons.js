@@ -12,6 +12,9 @@ const PATHS = {
     close: ['M6 6l12 12', 'M18 6L6 18'],
     previous: ['M15 6l-6 6 6 6'],
     next: ['M9 6l6 6-6 6'],
+    up: ['M12 19V5', 'M6 11l6-6 6 6'],
+    down: ['M12 5v14', 'M6 13l6 6 6-6'],
+    filter: ['M4 6h16', 'M7 12h10', 'M10 18h4'],
 };
 
 const SVG = 'http://www.w3.org/2000/svg';

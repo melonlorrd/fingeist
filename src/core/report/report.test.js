@@ -632,6 +632,44 @@ test('summarize comparisons', async (t) => {
     }
 });
 
+test('summarize trends: more spending is worse, more income or savings is better', async (t) => {
+    const scope = makeScope({from: '2026-11-01', to: '2026-11-01', today: '2026-11-08'});
+    const trends = (...changes) => {
+        const b = bookOf(...changes);
+        return Object.fromEntries(summarize(b.txns, b.project, scope).cards.map((c) => [c.key, [c.direction, c.trend]]));
+    };
+    const cases = [
+        [
+            'spending and income both went up',
+            [
+                txn('2026-10-31T10:00:00Z', -100n),
+                txn('2026-10-31T11:00:00Z', 100n),
+                txn('2026-11-01T10:00:00Z', -500n),
+                txn('2026-11-01T11:00:00Z', 900n),
+            ],
+            {spent: ['up', 'worse'], income: ['up', 'better'], savings: ['up', 'better'], average: ['up', 'worse']},
+        ],
+        [
+            'spending went down, income gone',
+            [txn('2026-10-31T10:00:00Z', -500n), txn('2026-10-31T11:00:00Z', 900n), txn('2026-11-01T10:00:00Z', -100n)],
+            {spent: ['down', 'better'], income: ['down', 'worse'], savings: ['down', 'worse'], average: ['down', 'better']},
+        ],
+        [
+            'nothing changed',
+            [txn('2026-10-31T10:00:00Z', -100n), txn('2026-11-01T10:00:00Z', -100n)],
+            {spent: ['', ''], income: ['', ''], savings: ['', ''], average: ['', '']},
+        ],
+        [
+            'no previous data',
+            [txn('2026-11-01T10:00:00Z', -100n)],
+            {spent: ['', ''], income: ['', ''], savings: ['', ''], average: ['', '']},
+        ],
+    ];
+    for (const [name, changes, want] of cases) {
+        await t.test(name, () => assert.deepEqual(trends(...changes), want));
+    }
+});
+
 test('ledgerView', async (t) => {
     const b = bookOf(
         change('account', 'card', {name: 'Card', kind: 'own'}),
@@ -648,11 +686,12 @@ test('ledgerView', async (t) => {
     );
     const data = ledgerView(b.txns, b.transfers, b.project);
     assert.deepEqual(
-        [data.count, data.days.length, data.months, data.spent.text, data.income.text],
-        [5, 3, ['2026-11', '2026-10'], '$17.50', '$1,000.00'],
+        [data.count, data.days.length, data.months, data.spent.text, data.income.text, data.net.text],
+        [5, 3, ['2026-11', '2026-10'], '$17.50', '$1,000.00', '+$982.50'],
     );
     const day = data.days[0];
-    assert.deepEqual([day.date, day.total.text], ['2026-11-07', '$983.50']);
+    assert.deepEqual([day.date, day.total.text], ['2026-11-07', '+$983.50']);
+    assert.equal(day.rows[2].amount.text, '+$1,000.00', 'money in carries a plus');
     assert.deepEqual(
         day.rows.map((r) => r.time),
         ['13:00', '09:30', ''],
@@ -664,7 +703,7 @@ test('ledgerView', async (t) => {
         ['groceries', ['#111111'], ['want'], '-$4.50', 'Cash'],
     );
     assert.equal(day.rows[0].category, 'Uncategorized');
-    assert.deepEqual([data.days[1].rows[0].refund, data.days[1].total.text], [true, '$2.00']);
+    assert.deepEqual([data.days[1].rows[0].refund, data.days[1].total.text], [true, '+$2.00']);
 
     const filters = [
         ['search merchant', {search: 'mocha'}, 1],
@@ -689,7 +728,7 @@ test('ledgerView', async (t) => {
     }
     await t.test('totals follow the filter', () => {
         const groceries = ledgerView(b.txns, b.transfers, b.project, {category: 'groceries'});
-        assert.deepEqual([groceries.spent.text, groceries.income.text], ['$2.50', '$0.00']);
+        assert.deepEqual([groceries.spent.text, groceries.income.text, groceries.net.text], ['$2.50', '$0.00', '-$2.50']);
     });
 });
 
@@ -721,7 +760,7 @@ test('ledgerView shows transfers and shares; transfers count in day totals only 
     assert.equal(all.days[2].rows[0].account, 'Paid by Rahul');
 
     const cash = ledgerView(b.txns, b.transfers, b.project, {account: 'cash'});
-    assert.deepEqual([cash.count, cash.days[0].total.text, cash.days[0].rows[1].amount.text], [2, '$49.00', '$50.00']);
+    assert.deepEqual([cash.count, cash.days[0].total.text, cash.days[0].rows[1].amount.text], [2, '+$49.00', '+$50.00']);
     assert.equal(ledgerView(b.txns, b.transfers, b.project, {account: 'rahul'}).count, 2);
     assert.equal(ledgerView(b.txns, b.transfers, b.project, {search: 'atm'}).count, 1);
     assert.equal(ledgerView(b.txns, b.transfers, b.project, {search: 'rahul'}).count, 2);

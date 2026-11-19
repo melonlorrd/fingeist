@@ -2,6 +2,8 @@ import {confirmDialog, el, field, fill, formDialog, pageHeader} from './dom.js';
 import {openEntryForm} from './entry-form.js';
 import {icon} from './icons.js';
 
+const initialOf = (name) => [...name.trim()][0]?.toUpperCase() ?? '?';
+
 export async function render(container, ctx) {
     const act = async (change) => {
         const error = await ctx.perform(change);
@@ -34,7 +36,7 @@ export async function render(container, ctx) {
             el(
                 'button',
                 {className: 'row', onclick: () => (a.listed ? openAccount(ctx, a) : ctx.openLedger({account: a.id}))},
-                el('span'),
+                el('span', {className: 'avatar', 'aria-hidden': 'true'}, a.kind === 'person' ? initialOf(a.name) : icon('accounts')),
                 el('span', {className: 'what'}, el('strong', {}, a.name), detail(a) ? el('small', {className: 'muted'}, detail(a)) : null),
                 el('span'),
                 el('span', {className: `amount ${a.balance.negative ? 'expense' : ''}`}, a.balance.text),

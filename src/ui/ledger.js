@@ -1,8 +1,9 @@
 // The ledger: entries grouped by day, with search, filters, totals and selecting many to recategorise.
 
 import {UNCATEGORIZED} from '../core/report/index.js';
-import {dayLabel, el, fill} from './dom.js';
+import {dateText, dayLabel, el, fill, monthLabel} from './dom.js';
 import {editEntry, openBulkCategory} from './entry-form.js';
+import {icon} from './icons.js';
 
 const DAYS_PER_PAGE = 40;
 const FILTERS = [
@@ -19,6 +20,7 @@ const EMPTY_QUERY = {search: '', month: '', category: '', account: '', filter: '
 
 const query = {...EMPTY_QUERY};
 let visibleDays = DAYS_PER_PAGE;
+let filtersOpen = false;
 let selecting = false;
 const selected = new Set();
 
@@ -32,7 +34,14 @@ function tone(amount, signed = true) {
     if (!signed) {
         return '';
     }
-    return amount.negative ? 'expense' : 'income';
+    return amount.negative ? 'expense' : amount.positive ? 'income' : '';
+}
+
+function rangeText() {
+    if (query.from === query.to) {
+        return dayLabel(query.from);
+    }
+    return `${query.from ? dateText(query.from) : 'Any date'} to ${query.to ? dateText(query.to) : 'now'}`;
 }
 
 function option(value, label, current) {
@@ -56,7 +65,7 @@ function filterSelect(label, key, options, onChange) {
 
 export async function render(container, ctx) {
     const list = el('div', {className: 'ledger-list'});
-    const totals = el('p', {className: 'muted'});
+    const totals = el('dl', {className: 'stats'});
     const month = filterSelect('Month', 'month', [], refilter);
     const category = filterSelect(
         'Category',
@@ -100,7 +109,6 @@ export async function render(container, ctx) {
                         'aria-pressed': String(query.filter === value),
                         onclick: () => {
                             query.filter = value;
-                            showFilters();
                             refilter();
                         },
                     },
@@ -110,30 +118,66 @@ export async function render(container, ctx) {
         );
     showFilters();
 
-    const range =
-        query.from || query.to
-            ? el(
-                  'div',
-                  {className: 'head-actions'},
-                  el(
-                      'span',
-                      {className: 'pill-note'},
-                      query.from === query.to ? dayLabel(query.from) : `${query.from || '…'} to ${query.to || '…'}`,
-                  ),
+    const categoryName = (id) =>
+        id === UNCATEGORIZED ? 'Uncategorized' : (ctx.boot.categories.find((c) => c.id === id)?.name ?? 'Deleted category');
+    const accountName = (id) => ctx.boot.accounts.find((a) => a.id === id)?.name ?? 'Deleted account';
+    const active = [
+        query.month ? {label: monthLabel(query.month), clear: {month: ''}} : null,
+        query.category ? {label: categoryName(query.category), clear: {category: ''}} : null,
+        query.account ? {label: accountName(query.account), clear: {account: ''}} : null,
+        query.from || query.to ? {label: rangeText(), clear: {from: '', to: ''}} : null,
+    ].filter((chip) => chip !== null);
+    const anyFilter = active.length > 0 || query.filter !== 'all' || query.search !== '';
+    const panel = el('div', {className: 'selects', hidden: !filtersOpen}, month, category, account);
+    const filtersButton = el(
+        'button',
+        {
+            className: filtersOpen ? 'active' : '',
+            'aria-expanded': String(filtersOpen),
+            onclick: () => {
+                filtersOpen = !filtersOpen;
+                panel.hidden = !filtersOpen;
+                filtersButton.classList.toggle('active', filtersOpen);
+                filtersButton.setAttribute('aria-expanded', String(filtersOpen));
+            },
+        },
+        icon('filter'),
+        el('span', {}, 'Filters'),
+        active.length > 0 ? el('span', {className: 'count'}, String(active.length)) : null,
+    );
+    const chips = anyFilter
+        ? el(
+              'div',
+              {className: 'active-filters'},
+              active.map((chip) =>
                   el(
                       'button',
                       {
-                          className: 'quiet',
+                          className: 'filter-chip',
+                          'aria-label': `Remove filter: ${chip.label}`,
                           onclick: () => {
-                              query.from = '';
-                              query.to = '';
+                              Object.assign(query, chip.clear);
+                              visibleDays = DAYS_PER_PAGE;
                               ctx.rerender();
                           },
                       },
-                      'Show all dates',
+                      el('span', {}, chip.label),
+                      icon('close'),
                   ),
-              )
-            : null;
+              ),
+              el(
+                  'button',
+                  {
+                      className: 'quiet',
+                      onclick: () => {
+                          setQuery({});
+                          ctx.rerender();
+                      },
+                  },
+                  'Clear all',
+              ),
+          )
+        : null;
 
     const bulkBar = el('div', {className: 'head-actions'});
     const showBulk = () =>
@@ -172,15 +216,18 @@ export async function render(container, ctx) {
 
     fill(
         container,
-        el('div', {className: 'filter-bar'}, search, el('div', {className: 'selects'}, month, category, account)),
+        el('div', {className: 'filter-bar'}, search, filtersButton),
+        panel,
         filters,
-        el('div', {className: 'filter-bar summary-line'}, range, totals, bulkBar),
+        chips,
+        el('div', {className: 'filter-bar summary-line'}, totals, bulkBar),
         list,
     );
 
+    // Redraws the whole screen, so the filter chips and Clear all follow every change.
     function refilter() {
         visibleDays = DAYS_PER_PAGE;
-        load();
+        ctx.rerender();
     }
 
     function load() {
@@ -188,9 +235,16 @@ export async function render(container, ctx) {
         fill(
             month,
             option('', 'All months', query.month),
-            data.months.map((m) => option(m, m, query.month)),
+            data.months.map((m) => option(m, monthLabel(m), query.month)),
         );
-        totals.textContent = `${data.count} entries · spent ${data.spent.text} · income ${data.income.text}`;
+        const stat = (label, value, className = '') => el('div', {}, el('dt', {}, label), el('dd', {className}, value));
+        fill(
+            totals,
+            stat('Entries', String(data.count)),
+            stat('Spent', data.spent.text),
+            stat('Income', data.income.text, 'income'),
+            stat('Net', data.net.text, tone(data.net)),
+        );
         const remaining = data.totalDays - data.days.length;
         const more = el(
             'button',
@@ -223,9 +277,7 @@ export async function render(container, ctx) {
     function entryRow(row) {
         const isTransfer = row.kind === 'transfer';
         const title = isTransfer ? 'Transfer' : row.merchant || row.note || '(no description)';
-        const parts = isTransfer
-            ? [row.account, row.time, row.note]
-            : [row.category, row.account, row.time, ...row.people, row.tags.join(', ')];
+        const parts = isTransfer ? [row.account, row.note] : [row.category, row.account, ...row.people, row.tags.join(', ')];
         const detail = [...parts, !isTransfer && row.merchant ? row.note : ''].filter(Boolean).join(' · ');
         const selectable = selecting && !isTransfer;
         const isSelected = selected.has(row.id);
@@ -266,7 +318,12 @@ export async function render(container, ctx) {
                 row.refund ? el('span', {className: 'badge'}, 'refund') : null,
                 row.recurring ? el('span', {className: 'badge'}, 'repeats') : null,
             ),
-            el('span', {className: `amount ${tone(row.amount, row.signed)}`}, row.amount.text),
+            el(
+                'span',
+                {className: 'figure'},
+                el('span', {className: `amount ${tone(row.amount, row.signed)}`}, row.amount.text),
+                row.time ? el('small', {className: 'muted'}, row.time) : null,
+            ),
         );
         return el('li', {}, button);
     }
