@@ -98,25 +98,24 @@ export async function render(container, ctx) {
             }, 200);
         },
     });
-    const filters = el('div', {className: 'pills scroll', role: 'group', 'aria-label': 'Show'});
-    const showFilters = () =>
-        filters.replaceChildren(
-            ...FILTERS.map(([value, label]) =>
-                el(
-                    'button',
-                    {
-                        className: query.filter === value ? 'active' : '',
-                        'aria-pressed': String(query.filter === value),
-                        onclick: () => {
-                            query.filter = value;
-                            refilter();
-                        },
+    const filters = el(
+        'div',
+        {className: 'pills scroll', role: 'group', 'aria-label': 'Show'},
+        FILTERS.map(([value, label]) =>
+            el(
+                'button',
+                {
+                    className: query.filter === value ? 'active' : '',
+                    'aria-pressed': String(query.filter === value),
+                    onclick: () => {
+                        query.filter = value;
+                        refilter();
                     },
-                    label,
-                ),
+                },
+                label,
             ),
-        );
-    showFilters();
+        ),
+    );
 
     const categoryName = (id) =>
         id === UNCATEGORIZED ? 'Uncategorized' : (ctx.boot.categories.find((c) => c.id === id)?.name ?? 'Deleted category');

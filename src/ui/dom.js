@@ -32,15 +32,6 @@ export function field(label, input, hint) {
     );
 }
 
-// options: [{value, label}]
-export function select(name, options, value) {
-    return el(
-        'select',
-        {name},
-        options.map((o) => el('option', {value: o.value, selected: o.value === value}, o.label)),
-    );
-}
-
 export function dayLabel(date) {
     const [year, month, day] = date.split('-').map(Number);
     return new Date(year, month - 1, day).toLocaleDateString(undefined, {

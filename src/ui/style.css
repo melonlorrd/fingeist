@@ -140,12 +140,6 @@ small {
 .muted {
     color: var(--muted);
 }
-.up {
-    color: var(--income);
-}
-.down {
-    color: var(--expense);
-}
 
 /* Top bar */
 .topbar {
@@ -483,6 +477,9 @@ p.error {
 .summary-card .label {
     margin-bottom: 2px;
 }
+.summary-card .change {
+    margin-top: 4px;
+}
 .big {
     font-size: 28px;
     line-height: 1.15;
@@ -495,7 +492,6 @@ p.error {
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    margin-top: 4px;
     color: var(--muted);
 }
 .change .icon {
@@ -827,9 +823,6 @@ button.row:has(> .avatar) {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
-}
-.amount.expense {
-    color: var(--text);
 }
 .amount.income {
     color: var(--income);
@@ -1332,12 +1325,6 @@ dialog .form-actions {
     padding: 8px 10px;
     border: 1px solid var(--line);
     border-radius: var(--r-inner);
-}
-.pill-note {
-    align-self: flex-start;
-    padding: 0 9px;
-    border-radius: 999px;
-    background: var(--tint);
 }
 .badges {
     display: inline-flex;

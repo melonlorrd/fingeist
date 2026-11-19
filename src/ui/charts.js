@@ -542,7 +542,7 @@ function renderCompare(body, chart) {
                     el(
                         'small',
                         {
-                            className: `change ${r.change.startsWith('+') || r.change === 'New' ? 'down' : r.change.startsWith('-') ? 'up' : ''}`,
+                            className: `change ${r.change.startsWith('+') || r.change === 'New' ? 'worse' : r.change.startsWith('-') ? 'better' : ''}`,
                         },
                         r.change,
                     ),
