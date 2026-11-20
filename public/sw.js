@@ -1,6 +1,8 @@
-// Keeps the app usable offline. The page is fetched fresh when the network answers quickly, so a new
-// deploy is picked up on the next open; built assets have content hashes, so the cached copy is safe,
-// and assets the current page no longer uses are dropped.
+// Keeps the app usable offline. The page is revalidated with the server on every open and is cached even
+// when it arrives too late for that open, so a new deploy is picked up on the next one at the latest; the
+// app also asks for a check when it comes back to the foreground (iOS resumes a home screen app without
+// reloading it) and offers a reload. Built assets have content hashes, so the cached copy is safe, and
+// assets the current page no longer uses are dropped.
 
 const CACHE = 'fingeist';
 const NAVIGATION_TIMEOUT_MS = 3000;
@@ -37,19 +39,25 @@ self.addEventListener('activate', (event) => {
     event.waitUntil(self.clients.claim());
 });
 
-async function navigate(request) {
-    const cache = await caches.open(CACHE);
+// no-cache revalidates with the server instead of trusting the HTTP cache, which may be minutes old.
+async function freshPage(url) {
+    const response = await fetch(url, {cache: 'no-cache'});
+    if (response.ok) {
+        await cachePage(await caches.open(CACHE), response.clone());
+    }
+    return response;
+}
+
+async function navigate(event) {
+    const refresh = freshPage(event.request.url);
+    event.waitUntil(refresh.catch(() => {}));
     try {
-        const response = await Promise.race([
-            fetch(request),
+        return await Promise.race([
+            refresh,
             new Promise((_, reject) => setTimeout(() => reject(new Error('slow network')), NAVIGATION_TIMEOUT_MS)),
         ]);
-        if (response.ok) {
-            await cachePage(cache, response.clone());
-        }
-        return response;
     } catch {
-        return (await cache.match('./')) ?? Response.error();
+        return (await (await caches.open(CACHE)).match('./')) ?? Response.error();
     }
 }
 
@@ -71,5 +79,21 @@ self.addEventListener('fetch', (event) => {
     if (event.request.method !== 'GET' || url.origin !== self.location.origin) {
         return;
     }
-    event.respondWith(event.request.mode === 'navigate' ? navigate(event.request) : asset(event.request));
+    event.respondWith(event.request.mode === 'navigate' ? navigate(event) : asset(event.request));
+});
+
+// The app asks after opening and on coming back to the foreground; the reply lists the assets of the newest page.
+self.addEventListener('message', (event) => {
+    if (event.data !== 'check-update') {
+        return;
+    }
+    event.waitUntil(
+        freshPage('./')
+            .then(async (response) => {
+                if (response.ok) {
+                    event.source?.postMessage({type: 'page', assets: assetsOf(await response.text())});
+                }
+            })
+            .catch(() => {}),
+    );
 });

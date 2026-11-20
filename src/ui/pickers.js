@@ -2,7 +2,7 @@
 // Each returns {node, value()}; value() is an id, or "new:Name" for one to create.
 
 import {NEW_PREFIX} from '../core/app.js';
-import {el, fill} from './dom.js';
+import {el, fill, infoTip} from './dom.js';
 import {icon} from './icons.js';
 
 /** Category chips: Uncategorized, the active categories, and "+ New category" which asks for a name. */
@@ -204,15 +204,15 @@ export function splitEditor(ctx, parts, onChange) {
         addPart(part, Boolean(part.person));
     }
     ready = true;
+    const tip = infoTip(
+        "With more than one item, the amount is their total. Fees are items too; a discount is a negative item, like -40. A person's share is money they owe you (or you them, for income). Amounts can be sums, like 720-40.",
+        'About items',
+    );
     const node = el(
         'div',
         {className: 'field'},
-        el('span', {}, 'Items'),
-        el(
-            'small',
-            {className: 'muted'},
-            "With more than one item, the amount is their total. Fees are items too; a discount is a negative item, like -40. A person's share is money they owe you (or you them, for income). Amounts can be sums, like 720-40.",
-        ),
+        el('div', {className: 'field-head'}, el('span', {}, 'Items'), tip.button),
+        tip.hint,
         rows,
         el(
             'div',

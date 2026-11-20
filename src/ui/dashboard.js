@@ -22,6 +22,7 @@ const GROUPS = [
 
 const range = {from: '', to: '', preset: 'this_month', account: ''};
 let rangeSet = false;
+let lastRange = '';
 
 export function disposeCharts() {
     charts.disposeCharts();
@@ -79,14 +80,18 @@ export async function render(container, ctx) {
     );
 
     const data = ctx.app.dashboard(range);
+    // Cards arrive with motion when the dashboard opens or the range changes, not when an edit or sync redraws it.
+    const animate = ctx.fresh || JSON.stringify(range) !== lastRange;
+    lastRange = JSON.stringify(range);
+    container.classList.toggle('enter', animate);
 
     const cards = el(
         'section',
         {className: 'summary'},
-        data.summary.cards.map((card) =>
+        data.summary.cards.map((card, index) =>
             el(
                 'article',
-                {className: 'card summary-card'},
+                {className: 'card summary-card', style: `--i:${index}`},
                 el('small', {className: 'label'}, card.label),
                 el('strong', {className: 'big'}, card.value.text),
                 card.detail ? el('small', {className: 'muted'}, card.detail) : null,
@@ -112,7 +117,7 @@ export async function render(container, ctx) {
             ),
         ),
         cards,
-        ctx.boot.budgets.rows.length > 0 ? el('article', {className: 'card'}, budgetSummary(ctx.boot.budgets)) : null,
+        ctx.boot.budgets.rows.length > 0 ? el('article', {className: 'card', style: '--i:4'}, budgetSummary(ctx.boot.budgets)) : null,
         chartsSection,
     );
     const shown = charts.visibleCharts(data.charts);
@@ -121,12 +126,16 @@ export async function render(container, ctx) {
         return;
     }
     const groupOf = (type) => GROUPS.findIndex(([, types]) => types.includes(type));
+    let first = 5;
     for (const [index, [title]] of GROUPS.entries()) {
         const inGroup = shown.filter((c) => (groupOf(c.type) === -1 ? GROUPS.length - 1 : groupOf(c.type)) === index);
         if (inGroup.length > 0) {
             const grid = el('div', {className: 'charts'});
-            chartsSection.append(el('section', {className: 'chart-group'}, el('h2', {className: 'group-title'}, title), grid));
-            charts.renderCharts(grid, inGroup, ctx);
+            chartsSection.append(
+                el('section', {className: 'chart-group'}, el('h2', {className: 'group-title', style: `--i:${first}`}, title), grid),
+            );
+            charts.renderCharts(grid, inGroup, ctx, {first, animate});
+            first += inGroup.length;
         }
     }
 }

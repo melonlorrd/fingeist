@@ -31,7 +31,7 @@ flowchart TD
     core -->|GitHub REST API| repo[("Private data repo (encrypted)")]
 ```
 
-Plain JavaScript modules, bundled by Vite, with ECharts. `core` takes the store, crypto, `fetch` and clock as parameters, so it is fully tested under Node. Every change is saved locally first and queued; sync pulls other devices' files, merges them, and uploads this device's queue. `public/sw.js` keeps the app usable offline.
+Plain JavaScript modules, bundled by Vite, with ECharts. `core` takes the store, crypto, `fetch` and clock as parameters, so it is fully tested under Node. Every change is saved locally first and queued; sync pulls other devices' files, merges them, and uploads this device's queue. `public/sw.js` keeps the app usable offline and revalidates the page on every open; `src/platform/updates.js` asks it for a check whenever the app returns to the foreground and offers a reload when a newer deploy is waiting.
 
 ## Data format
 

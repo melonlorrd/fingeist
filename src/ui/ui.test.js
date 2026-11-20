@@ -27,6 +27,7 @@ const GLOBALS = [
     'getComputedStyle',
     'matchMedia',
     'ResizeObserver',
+    'IntersectionObserver',
     'MutationObserver',
     'requestAnimationFrame',
 ];
@@ -228,6 +229,11 @@ test('every screen and dialog with a full book', async () => {
 
     await click('Dashboard', document.querySelector('nav') ?? document);
     assert.ok(document.querySelector('.cal button.cal-day'), 'the spending calendar has a day to open');
+    const info = /** @type {HTMLButtonElement} */ (document.querySelector('main button.info'));
+    const hint = /** @type {HTMLElement} */ (info.closest('.card')?.querySelector('.hint'));
+    assert.equal(hint.hidden, true, 'hints start hidden');
+    info.click();
+    assert.deepEqual([hint.hidden, info.getAttribute('aria-expanded')], [false, 'true'], 'the (i) button shows its hint');
     const foodRow = [...document.querySelectorAll('button.stat-row')].find((b) => b.textContent?.includes('Food'));
     assert.ok(foodRow, 'no category row for Food');
     foodRow.click();

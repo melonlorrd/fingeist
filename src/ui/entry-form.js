@@ -1,6 +1,6 @@
 // The add/edit dialog for an expense, income, refund or transfer, and the actions on one entry.
 
-import {closeDialog, datePicker, dayLabel, el, field, formDialog, openDialog} from './dom.js';
+import {closeDialog, datePicker, dayLabel, el, field, formDialog, infoTip, openDialog} from './dom.js';
 import {accountPicker, categoryPicker, pills, splitEditor} from './pickers.js';
 
 const TYPES = [
@@ -87,7 +87,7 @@ export function openEntryForm(ctx, entry) {
         'aria-label': 'Amount',
         oninput: () => split.setOnlyAmount(amountInput.value),
     });
-    const sumHint = el('small', {className: 'muted'}, 'You can type a sum, e.g. 720-40 or 120+45.50.');
+    const sumHint = infoTip('You can type a sum, e.g. 720-40 or 120+45.50.', 'About the amount');
     // With one item the main field is that item's amount; with several it shows their total and can't be typed in.
     const showTotal = () => {
         const totalled = type !== 'transfer' && split.count() > 1;
@@ -97,7 +97,10 @@ export function openEntryForm(ctx, entry) {
             amountInput.value = split.amounts()[0] ?? '';
         }
         amountInput.readOnly = totalled;
-        sumHint.hidden = totalled;
+        sumHint.button.hidden = totalled;
+        if (totalled) {
+            sumHint.hint.hidden = true;
+        }
     };
     const split = splitEditor(ctx, itemsOf(entry), showTotal);
     split.begin();
@@ -177,8 +180,8 @@ export function openEntryForm(ctx, entry) {
         title: isNew ? 'New entry' : 'Edit entry',
         fields: [
             typePills,
-            el('label', {className: 'amount-input'}, el('span', {}, ctx.boot.currency), amountInput),
-            sumHint,
+            el('label', {className: 'amount-input'}, el('span', {}, ctx.boot.currency), amountInput, sumHint.button),
+            sumHint.hint,
             merchantField,
             merchantList,
             accountField,

@@ -20,16 +20,47 @@ export function fill(node, ...children) {
     node.replaceChildren(...children.flat(Infinity).filter((child) => child != null));
 }
 
-/** A labelled form field. A single input gets a <label>; a group of buttons or pickers gets a named group. */
+/**
+ * A labelled form field. A single input gets a <label>; a group of buttons or pickers gets a named group.
+ * A hint stays behind an (i) button until asked for.
+ */
 export function field(label, input, hint) {
     const single = ['INPUT', 'SELECT', 'TEXTAREA'].includes(input.tagName);
-    return el(
-        single ? 'label' : 'div',
-        {className: 'field', ...(single ? {} : {role: 'group', 'aria-label': label})},
-        el('span', {}, label),
-        input,
-        hint ? el('small', {className: 'muted'}, hint) : null,
+    const group = single ? {} : {role: 'group', 'aria-label': label};
+    if (!hint) {
+        return el(single ? 'label' : 'div', {className: 'field', ...group}, el('span', {}, label), input);
+    }
+    // The (i) button sits outside the <label>, so it doesn't become part of the input's name.
+    const tip = infoTip(hint, `About ${label}`);
+    let caption = el('span', {}, label);
+    if (single) {
+        input.id ||= `field-${++fieldCount}`;
+        caption = el('label', {htmlFor: input.id}, label);
+    }
+    return el('div', {className: 'field', ...group}, el('div', {className: 'field-head'}, caption, tip.button), tip.hint, input);
+}
+
+let fieldCount = 0;
+
+/** A round (i) button and the hint it shows or hides; place both where they belong. */
+export function infoTip(text, label = 'More info') {
+    const hint = el('small', {className: 'hint', hidden: true}, text);
+    const button = el(
+        'button',
+        {
+            type: 'button',
+            className: 'info',
+            'aria-label': label,
+            'aria-expanded': 'false',
+            onclick: () => {
+                hint.hidden = !hint.hidden;
+                button.setAttribute('aria-expanded', String(!hint.hidden));
+                button.classList.toggle('active', !hint.hidden);
+            },
+        },
+        icon('info'),
     );
+    return {button, hint};
 }
 
 export function dayLabel(date) {
@@ -40,6 +71,18 @@ export function dayLabel(date) {
         month: 'short',
         year: 'numeric',
     });
+}
+
+/** A date as a short axis label, like "Nov 3". */
+export function shortDayLabel(date) {
+    const [year, month, day] = date.split('-').map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString(undefined, {day: 'numeric', month: 'short'});
+}
+
+/** A month as a short axis label, like "Nov 26". */
+export function shortMonthLabel(month) {
+    const [year, number] = month.split('-').map(Number);
+    return new Date(year, number - 1, 1).toLocaleDateString(undefined, {month: 'short', year: '2-digit'});
 }
 
 export function monthLabel(month) {

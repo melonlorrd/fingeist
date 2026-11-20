@@ -1,15 +1,18 @@
-import {closeDialog, el, field, formDialog, pageHeader} from './dom.js';
+import {closeDialog, el, field, formDialog, infoTip, pageHeader} from './dom.js';
 import {eraseDevice, syncCard} from './sync.js';
 
 const EVERY = {day: 'every day', week: 'every week', month: 'every month', year: 'every year'};
 
-const section = (title, hint, ...children) =>
-    el(
+function section(title, hint, ...children) {
+    const tip = hint ? infoTip(hint, `About ${title}`) : null;
+    return el(
         'section',
         {className: 'card form'},
-        el('div', {}, el('h2', {}, title), hint ? el('p', {className: 'muted'}, hint) : null),
+        el('div', {className: 'card-head'}, el('h2', {}, title), tip?.button),
+        tip?.hint,
         children,
     );
+}
 
 export async function render(container, ctx) {
     const s = ctx.boot.settings;

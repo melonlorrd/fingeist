@@ -66,6 +66,7 @@ export function startShell(app) {
         perform,
         notify: showNotice,
         rerender: renderView,
+        fresh: true,
         refresh,
         syncNow,
         openLedger,
@@ -240,6 +241,9 @@ export function startShell(app) {
         const restore = renderedTab === activeTab ? rememberPosition() : null;
         dashboard.disposeCharts();
         const container = el('div', {});
+        // A screen just opened animates in; a redraw of the same screen doesn't.
+        ctx.fresh = renderedTab !== activeTab;
+        container.classList.toggle('enter', ctx.fresh);
         try {
             await views[activeTab].render(container, ctx);
         } catch (err) {
@@ -348,4 +352,5 @@ export function startShell(app) {
     document.addEventListener('pointerdown', rememberTap, true);
 
     refresh().then(syncNow);
+    return {notify: showNotice};
 }

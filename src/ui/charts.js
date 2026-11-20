@@ -4,7 +4,7 @@ import * as echarts from 'echarts/core';
 import {LegacyGridContainLabel} from 'echarts/features';
 import {CanvasRenderer} from 'echarts/renderers';
 
-import {el, monthLabel} from './dom.js';
+import {el, infoTip, monthLabel, shortDayLabel, shortMonthLabel} from './dom.js';
 import {openEntryList} from './entry-form.js';
 import {icon} from './icons.js';
 
@@ -17,6 +17,7 @@ const INTENT_NAMES = {need: 'Need', want: 'Want', impulse: 'Impulse'};
 let instances = [];
 let observers = [];
 
+let animateCharts = true;
 let smallIndex = 0;
 let calendarIndex = null;
 
@@ -68,15 +69,19 @@ export function isEmpty(chart) {
     return !chart.error && Boolean(types[chart.type]?.empty(chart));
 }
 
-export function renderCharts(container, charts, ctx) {
-    container.replaceChildren(...charts.map((chart) => chartCard(chart, ctx)));
+/** first numbers the cards across the page, so they arrive one after another; animate is off for redraws. */
+export function renderCharts(container, charts, ctx, {first = 0, animate = true} = {}) {
+    animateCharts = animate;
+    container.replaceChildren(...charts.map((chart, i) => chartCard(chart, ctx, first + i)));
 }
 
-function chartCard(chart, ctx) {
+function chartCard(chart, ctx, index) {
+    const tip = hints[chart.type] ? infoTip(hints[chart.type], `About ${chart.title}`) : null;
     const card = el(
         'article',
-        {className: `card chart-${chart.type}`},
-        el('div', {className: 'card-head'}, el('h2', {}, chart.title), el('small', {className: 'muted'}, hints[chart.type] ?? '')),
+        {className: `card chart-${chart.type}`, style: `--i:${index}`},
+        el('div', {className: 'card-head'}, el('h2', {}, chart.title), tip?.button),
+        tip?.hint,
     );
     const type = types[chart.type];
     if (chart.error || !type) {
@@ -117,9 +122,9 @@ function escapeHtml(text) {
 }
 
 // ECharts animates on its own canvas, so the CSS reduced-motion rule doesn't reach it.
-function motion() {
+function motion(animate) {
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    return reduced ? {animation: false} : {animationDuration: 400, animationDurationUpdate: 250};
+    return reduced || !animate ? {animation: false} : {animationDuration: 600, animationEasing: 'cubicOut', animationDurationUpdate: 250};
 }
 
 // The look every chart shares: the page's font, muted axes, and a tooltip shaped like the app's popovers.
@@ -167,6 +172,7 @@ function mount(parent, buildOption, data, height = DEFAULT_HEIGHT, onReady) {
     parent.append(canvas);
 
     let instance = null;
+    const animate = animateCharts;
     const observer = new ResizeObserver(() => {
         if (canvas.clientWidth === 0) {
             return;
@@ -176,7 +182,7 @@ function mount(parent, buildOption, data, height = DEFAULT_HEIGHT, onReady) {
             return;
         }
         instance = echarts.init(canvas);
-        instance.setOption({...buildOption(data, theme()), ...motion()});
+        instance.setOption({...buildOption(data, theme()), ...motion(animate)});
         instances.push(instance);
         onReady?.(instance);
     });
@@ -200,7 +206,7 @@ function monthlyTotalsOption(chart, t) {
             axisPointer: {type: 'shadow', shadowStyle: {color: `${t.line}66`}},
             formatter: (params) =>
                 [
-                    `<strong>${escapeHtml(params[0].axisValue)}</strong>`,
+                    `<strong>${escapeHtml(monthLabel(params[0].axisValue))}</strong>`,
                     ...params.map((p) => `${p.marker} ${p.seriesName}: ${escapeHtml(p.data.text)}`),
                     `Net: ${escapeHtml(params[0].data.net)}`,
                 ].join('<br>'),
@@ -208,6 +214,7 @@ function monthlyTotalsOption(chart, t) {
         xAxis: categoryAxis(
             t,
             chart.months.map((m) => m.month),
+            {axisLabel: {color: t.muted, formatter: shortMonthLabel}},
         ),
         yAxis: valueAxis(t),
         series: [
@@ -231,12 +238,16 @@ function runningBalanceOption(chart, t) {
         tooltip: {
             ...b.tooltip,
             trigger: 'axis',
-            formatter: (p) => `${escapeHtml(p[0].axisValue)}<br><strong>${escapeHtml(p[0].data.text)}</strong>`,
+            formatter: (p) => `${escapeHtml(shortDayLabel(p[0].axisValue))}<br><strong>${escapeHtml(p[0].data.text)}</strong>`,
         },
         xAxis: categoryAxis(
             t,
             chart.balance.map((p) => p.date),
-            {boundaryGap: false},
+            // The first and last labels sit at the plot's edges; aligning them inward keeps them from being cut off.
+            {
+                boundaryGap: false,
+                axisLabel: {color: t.muted, formatter: shortDayLabel, alignMinLabel: 'left', alignMaxLabel: 'right', hideOverlap: true},
+            },
         ),
         yAxis: valueAxis(t),
         series: [
@@ -273,7 +284,7 @@ function renderByCategory(body, chart, ctx) {
         el(
             'ul',
             {className: 'plain stat-list'},
-            chart.categories.map((c) =>
+            chart.categories.map((c, row) =>
                 el(
                     'li',
                     {},
@@ -288,7 +299,11 @@ function renderByCategory(body, chart, ctx) {
                         ),
                         el('strong', {className: 'amount'}, c.spent.text),
                         el('small', {className: `change ${changeTone(c.change)}`}, c.change),
-                        el('span', {className: 'bar'}, el('span', {style: `width:${c.barSize / 100}%;--c:${c.color || 'var(--muted)'}`})),
+                        el(
+                            'span',
+                            {className: 'bar'},
+                            el('span', {style: `width:${c.barSize / 100}%;--c:${c.color || 'var(--muted)'};--row:${row}`}),
+                        ),
                     ),
                 ),
             ),
@@ -356,13 +371,15 @@ const DAY_STATUS = {zero: 'No spending', future: 'Upcoming', outside: 'Not count
 
 function calendarCells(month, open) {
     const blanks = Array.from({length: month.lead}, () => el('span'));
-    const cells = month.days.map((d) => {
+    const cells = month.days.map((d, index) => {
         const day = String(Number(d.date.slice(8)));
+        const order = `--d:${index}`;
         if (d.status === 'spent') {
             return el(
                 'button',
                 {
                     className: `cal-day l${d.level}`,
+                    style: order,
                     title: `${d.date}: ${d.spent.text}`,
                     'aria-label': `${d.date}, ${d.spent.text}`,
                     onclick: () => open(d.date),
@@ -371,7 +388,7 @@ function calendarCells(month, open) {
             );
         }
         const label = `${d.date}: ${DAY_STATUS[d.status] ?? ''}`;
-        return el('span', {className: `cal-day ${d.status}`, title: label, 'aria-label': label}, day);
+        return el('span', {className: `cal-day ${d.status}`, style: order, title: label, 'aria-label': label}, day);
     });
     return [...blanks, ...cells];
 }
@@ -437,13 +454,14 @@ function intentTrendsOption(chart, t) {
             axisPointer: {type: 'shadow', shadowStyle: {color: `${t.line}66`}},
             formatter: (params) =>
                 [
-                    `<strong>${escapeHtml(params[0].axisValue)}</strong>`,
+                    `<strong>${escapeHtml(monthLabel(params[0].axisValue))}</strong>`,
                     ...params.map((p) => `${p.marker} ${p.seriesName}: ${escapeHtml(p.data.text)}`),
                 ].join('<br>'),
         },
         xAxis: categoryAxis(
             t,
             chart.intentMonths.map((m) => m.month),
+            {axisLabel: {color: t.muted, formatter: shortMonthLabel}},
         ),
         yAxis: valueAxis(t),
         series: [series('Need', 'need'), series('Want', 'want'), series('Impulse', 'impulse')],

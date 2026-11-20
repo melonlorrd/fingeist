@@ -63,6 +63,28 @@ function filterSelect(label, key, options, onChange) {
     return select;
 }
 
+let stuckObserver = null;
+
+// A day header turns into a glass capsule only while it is stuck under the top bar, so it never sits on the page
+// as a dark band. The observed edge is 1px below where headers stick, so a stuck header reads as partly hidden.
+function watchStuckHeaders(list) {
+    stuckObserver?.disconnect();
+    const topbar = Number.parseInt(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h'), 10) || 0;
+    stuckObserver = new IntersectionObserver(
+        (entries) => {
+            for (const entry of entries) {
+                const stuck =
+                    entry.isIntersecting && entry.intersectionRatio < 1 && entry.boundingClientRect.top < (entry.rootBounds?.top ?? 0);
+                entry.target.classList.toggle('stuck', stuck);
+            }
+        },
+        {rootMargin: `-${topbar + 1}px 0px 0px 0px`, threshold: 1},
+    );
+    for (const header of list.querySelectorAll('.day > header')) {
+        stuckObserver.observe(header);
+    }
+}
+
 export async function render(container, ctx) {
     const list = el('div', {className: 'ledger-list'});
     const totals = el('dl', {className: 'stats'});
@@ -251,6 +273,7 @@ export async function render(container, ctx) {
                 className: 'more',
                 onclick: () => {
                     visibleDays += DAYS_PER_PAGE;
+                    container.classList.remove('enter');
                     load();
                 },
             },
@@ -261,12 +284,13 @@ export async function render(container, ctx) {
             data.days.length === 0 ? el('p', {className: 'muted'}, 'Nothing matches.') : data.days.map(dayGroup),
             remaining > 0 ? more : null,
         );
+        watchStuckHeaders(list);
     }
 
-    function dayGroup(day) {
+    function dayGroup(day, index) {
         return el(
             'section',
-            {className: 'day'},
+            {className: 'day', style: `--i:${index}`},
             el('header', {}, el('h3', {}, dayLabel(day.date)), el('span', {className: `amount ${tone(day.total)}`}, day.total.text)),
             el('ul', {className: 'card rows'}, day.rows.map(entryRow)),
         );

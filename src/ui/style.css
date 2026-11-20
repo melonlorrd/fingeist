@@ -75,7 +75,6 @@
 
     /* Glass: floating layers over the page (bars, dialogs, popovers, notices). */
     --glass-blur: saturate(180%) blur(22px);
-    --glass-bar: color-mix(in srgb, var(--bg) 70%, transparent);
     --glass-float: color-mix(in srgb, var(--surface) 80%, transparent);
 }
 
@@ -192,19 +191,26 @@ small {
     color: var(--muted);
 }
 
-/* Top bar */
+/* Top bar: a floating capsule, with the page scrolling past it. Only the status bar area of a phone is filled. */
 .topbar {
     position: sticky;
     top: 0;
     z-index: 5;
-    background: var(--bg);
-    border-bottom: 0.5px solid var(--hairline);
-    padding: var(--safe-top) var(--safe-right) 0 var(--safe-left);
+    padding: calc(var(--safe-top) + 10px) calc(var(--gutter) + var(--safe-right)) 6px calc(var(--gutter) + var(--safe-left));
+    background: linear-gradient(to bottom, var(--bg) var(--safe-top), transparent var(--safe-top));
+    pointer-events: none;
 }
 .topbar-inner {
-    max-width: 1120px;
+    pointer-events: auto;
+    max-width: calc(1120px - 2 * var(--gutter));
     margin: 0 auto;
-    padding: var(--s-2) var(--gutter);
+    padding: 6px 6px 6px var(--s-5);
+    border-radius: 999px;
+    background: var(--surface);
+    border: 0.5px solid var(--hairline);
+    box-shadow:
+        var(--shadow-raise),
+        inset 0 1px 0 var(--edge-light);
     display: flex;
     flex-wrap: wrap;
     gap: var(--s-2) var(--s-4);
@@ -225,7 +231,7 @@ small {
 .page {
     max-width: 1120px;
     margin: 0 auto;
-    padding: var(--s-5) calc(var(--gutter) + var(--safe-right)) calc(56px + var(--safe-bottom)) calc(var(--gutter) + var(--safe-left));
+    padding: var(--s-3) calc(var(--gutter) + var(--safe-right)) calc(56px + var(--safe-bottom)) calc(var(--gutter) + var(--safe-left));
     display: flex;
     flex-direction: column;
     gap: var(--s-4);
@@ -951,16 +957,34 @@ button.filter-chip {
 .stats dd.income {
     color: var(--income);
 }
-/* Each day's header stays under the top bar while its entries scroll past. */
+/* Each day's header stays under the top bar while its entries scroll past; once stuck (ledger.js marks it)
+   it becomes a floating capsule instead of a band across the page. */
 .day > header {
     position: sticky;
     top: var(--topbar-h, 0px);
     z-index: 2;
+    isolation: isolate;
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    padding: 10px var(--s-3) 6px;
-    background: var(--bg);
+    padding: var(--s-2) var(--s-4);
+    margin-top: var(--s-1);
+    border-radius: 999px;
+}
+.day > header::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--surface);
+    box-shadow:
+        var(--shadow-raise),
+        inset 0 1px 0 var(--edge-light);
+    opacity: 0;
+}
+.day > header.stuck::before {
+    opacity: 1;
 }
 .day {
     margin-bottom: 2px;
@@ -1171,10 +1195,51 @@ button.close {
     flex-direction: column;
     gap: 6px;
 }
-.field > span {
+.field > span,
+.field-head > span,
+.field-head > label {
     color: var(--muted);
     font-size: 12px;
     font-weight: 500;
+}
+.field-head {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+/* The round (i) that shows a hint; on touch screens its target grows without moving the layout. */
+button.info {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: var(--muted);
+}
+button.info .icon {
+    width: 16px;
+    height: 16px;
+}
+.card-head > button.info {
+    align-self: center;
+}
+.amount-input button.info {
+    margin-left: auto;
+}
+.hint {
+    display: block;
+    padding: var(--s-2) var(--s-3);
+    border-radius: var(--r-inner);
+    background: color-mix(in srgb, var(--text) 4%, transparent);
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.45;
+}
+.card-head + .hint {
+    margin: calc(-1 * var(--s-1)) 0 var(--s-3);
 }
 .amount-input {
     display: flex;
@@ -1399,8 +1464,11 @@ dialog .form-actions {
         --tab-h: 58px;
         --island-bottom: max(10px, calc(var(--safe-bottom) - 8px));
     }
+    .topbar-inner {
+        padding: var(--s-2) var(--s-4);
+    }
     .page {
-        padding-top: var(--s-3);
+        padding-top: var(--s-2);
         padding-bottom: calc(var(--island-bottom) + var(--tab-h) + 88px);
         gap: var(--s-3);
     }
@@ -1582,6 +1650,11 @@ dialog .form-actions {
     .cal-day {
         min-height: 0;
     }
+    button.info {
+        width: 36px;
+        height: 36px;
+        margin: -7px;
+    }
     .amount-input input {
         font-size: 28px;
     }
@@ -1598,16 +1671,29 @@ dialog .form-actions {
         opacity: 0;
     }
 }
+@keyframes rise {
+    from {
+        opacity: 0;
+        transform: translateY(14px) scale(0.985);
+    }
+}
+@keyframes grow-x {
+    from {
+        transform: scaleX(0);
+    }
+}
+@keyframes pop {
+    from {
+        opacity: 0;
+        transform: scale(0.6);
+    }
+}
 
 /* Glass: floating layers turn translucent over a blur, unless the OS asks for reduced transparency. */
 @media (prefers-reduced-transparency: no-preference) {
     @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-        .topbar,
-        .day > header {
-            background: var(--glass-bar);
-            -webkit-backdrop-filter: var(--glass-blur);
-            backdrop-filter: var(--glass-blur);
-        }
+        .topbar-inner,
+        .day > header::before,
         dialog,
         .date-popover,
         .toast,
@@ -1644,6 +1730,37 @@ dialog .form-actions {
     button:not(.row, .stat-row, .cal-day):active:not(:disabled) {
         transform: scale(0.95);
         transition-duration: var(--t-fast);
+    }
+    button.stat-row:active {
+        transform: scale(0.985);
+        transition-duration: var(--t-fast);
+    }
+    .day > header::before {
+        transition: opacity var(--t-base) var(--ease);
+    }
+    .hint:not([hidden]) {
+        animation: rise-in var(--t-base) var(--ease);
+    }
+
+    /* A screen that just opened (or a dashboard range that changed) arrives in order: cards rise one after another,
+       bars grow from their start, calendar days pop in. "backwards" leaves no transform behind afterwards. */
+    .enter .card:not(.rows),
+    .enter .group-title,
+    .enter .day {
+        --enter-delay: min(calc(var(--i, 0) * 50ms), 450ms);
+        animation: rise var(--t-spring) var(--spring) backwards;
+        animation-delay: var(--enter-delay);
+    }
+    .enter .bar > span,
+    .enter .meter span,
+    .enter .mix-bar > span {
+        transform-origin: left;
+        animation: grow-x 700ms var(--ease) backwards;
+        animation-delay: calc(var(--enter-delay, 0ms) + 150ms + var(--row, 0) * 40ms);
+    }
+    .enter .cal .cal-day {
+        animation: pop var(--t-spring) var(--spring) backwards;
+        animation-delay: calc(var(--enter-delay, 0ms) + var(--d, 0) * 8ms);
     }
     .pills.sliding.ready::before {
         transition:
