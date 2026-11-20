@@ -33,7 +33,7 @@
  *   start: string, until: string, paused: boolean}} Repeat
  *
  * @typedef {{name: string, currency: string, decimals: number, created?: string}} Meta
- * @typedef {{name: string, currency: string, decimals: number, thresholds: bigint[], workdays: number[], monthStart: number,
+ * @typedef {{name: string, currency: string, decimals: number, thresholds: bigint[], monthStart: number,
  *   categories: Category[], accounts: Account[], categoryById: Map<string, Category>, accountById: Map<string, Account>}} Project
  * @typedef {{kind: string, id: string, device: string, message: string}} Problem
  * @typedef {{project: Project, txns: Txn[], transfers: Transfer[], budgets: Budget[], recurring: Repeat[],

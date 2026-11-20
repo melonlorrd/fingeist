@@ -6,9 +6,7 @@ import {live} from './state.js';
 import {isDate, parseWhen} from './time.js';
 
 const INTENTS = ['need', 'want', 'impulse'];
-export const DAY_NAMES = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const DEFAULT_THRESHOLDS = ['100', '250', '500', '1000'];
-const DEFAULT_WORKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri'];
 const ACCOUNT_KINDS = ['own', 'person'];
 const REPEATS = ['day', 'week', 'month', 'year'];
 export const PROJECT_SETTINGS = 'project';
@@ -193,13 +191,6 @@ export function parseThresholds(value, decimals) {
     return [...new Set(amounts)].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
-export function parseWorkdays(value) {
-    if (!Array.isArray(value) || value.some((d) => !DAY_NAMES.includes(d))) {
-        throw new Error('workdays must be mon to sun');
-    }
-    return DAY_NAMES.flatMap((d, i) => (value.includes(d) ? [i] : []));
-}
-
 export function parseMonthStart(value) {
     if (!Number.isInteger(value) || value < 1 || value > 28) {
         throw new Error('the month start must be a day from 1 to 28');
@@ -306,7 +297,6 @@ export function buildBook(winners, meta) {
         currency: meta.currency,
         decimals: meta.decimals,
         thresholds: setting('thresholds', (v) => parseThresholds(v, meta.decimals), DEFAULT_THRESHOLDS),
-        workdays: setting('workdays', parseWorkdays, DEFAULT_WORKDAYS),
         monthStart: setting('monthStart', parseMonthStart, 1),
         categories: [...allCategories.values()].filter((c) => !c.mergedInto).sort(byName),
         accounts: [...allAccounts.values()].filter((a) => !a.mergedInto).sort(byName),

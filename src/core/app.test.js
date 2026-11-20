@@ -55,7 +55,6 @@ test('a new project starts with no categories and no accounts', async () => {
         name: 'Home',
         currency: 'INR',
         thresholds: ['100.00', '250.00', '500.00', '1000.00'],
-        workdays: ['mon', 'tue', 'wed', 'thu', 'fri'],
         monthStart: 1,
     });
     await assert.rejects(app.createProject({name: 'Again', currency: 'INR', decimals: 2}), /already exists/);
@@ -465,11 +464,11 @@ test('budgets and settings', async () => {
     await app.setBudget(ids(app).Food, '');
     assert.deepEqual(app.boot().budgets.rows, []);
 
-    await app.saveSettings({name: 'Household', thresholds: ['50', '500'], workdays: ['sat', 'mon'], monthStart: '25'});
+    await app.saveSettings({name: 'Household', thresholds: ['50', '500'], monthStart: '25'});
     const s = app.boot().settings;
-    assert.deepEqual([s.name, s.thresholds, s.workdays, s.monthStart], ['Household', ['50.00', '500.00'], ['mon', 'sat'], 25]);
+    assert.deepEqual([s.name, s.thresholds, s.monthStart], ['Household', ['50.00', '500.00'], 25]);
     assert.deepEqual(app.presetRange('this_month'), {from: '2026-10-25', to: '2026-11-15'});
-    await assert.rejects(app.saveSettings({name: 'x', thresholds: ['abc'], workdays: [], monthStart: 1}), /invalid amount/);
+    await assert.rejects(app.saveSettings({name: 'x', thresholds: ['abc'], monthStart: 1}), /invalid amount/);
 });
 
 test('dashboard follows the range and account', async () => {

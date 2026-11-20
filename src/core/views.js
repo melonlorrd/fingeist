@@ -2,7 +2,6 @@
 
 import {exportCsv, exportJson} from './export.js';
 import {displayMoney, formatMoney, parseMoney} from './money.js';
-import {DAY_NAMES} from './records.js';
 import {
     accountBalances,
     accountName,
@@ -209,7 +208,6 @@ export function viewsApi(ws) {
                     name: b.project.name,
                     currency: local.meta.currency,
                     thresholds: b.project.thresholds.map((t) => formatMoney(t, ws.decimals())),
-                    workdays: b.project.workdays.map((d) => DAY_NAMES[d]),
                     monthStart: b.project.monthStart,
                 },
                 budgets: budgetStatus(b, ws.today()),

@@ -3,7 +3,6 @@
 
 import {formatMoney, parseMoney} from './money.js';
 import {
-    DAY_NAMES,
     parseAccount,
     parseCategory,
     parseMonthStart,
@@ -11,7 +10,6 @@ import {
     parseThresholds,
     parseTransfer,
     parseTxn,
-    parseWorkdays,
     requiredText,
 } from './records.js';
 
@@ -118,11 +116,9 @@ export function recurringFields(input, decimals) {
 /** Fields of the project settings record from the settings form. */
 export function settingsFields(input, decimals) {
     const thresholds = parseThresholds(input.thresholds.map((t) => String(t).trim()).filter(Boolean), decimals);
-    parseWorkdays(input.workdays);
     return {
         name: requiredText(input.name, 'project name'),
         thresholds: thresholds.map((a) => formatMoney(a, decimals)),
-        workdays: DAY_NAMES.filter((d) => input.workdays.includes(d)),
         monthStart: parseMonthStart(Number(input.monthStart)),
     };
 }

@@ -52,7 +52,6 @@ export async function render(container, ctx) {
             ctx.app.saveSettings({
                 name: data.get('name'),
                 thresholds: String(data.get('thresholds') ?? '').split(','),
-                workdays: s.workdays,
                 monthStart: data.get('monthStart'),
             }),
         );

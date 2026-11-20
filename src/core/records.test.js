@@ -82,18 +82,14 @@ test('buildBook parses every kind', () => {
 
 test('settings default, and each setting field merges on its own', () => {
     const defaults = book().project;
-    assert.deepEqual(
-        [defaults.name, defaults.thresholds, defaults.workdays, defaults.monthStart],
-        ['Home', [10000n, 25000n, 50000n, 100000n], [1, 2, 3, 4, 5], 1],
-    );
+    assert.deepEqual([defaults.name, defaults.thresholds, defaults.monthStart], ['Home', [10000n, 25000n, 50000n, 100000n], 1]);
     const b = book(
         put('setting', 'project', {name: 'Household'}, 'A'),
-        put('setting', 'project', {thresholds: ['500', '50', '50.00'], workdays: ['sat', 'mon'], monthStart: 25}, 'B'),
+        put('setting', 'project', {thresholds: ['500', '50', '50.00'], monthStart: 25}, 'B'),
+        // Older apps also wrote workdays; it is no longer read, and is not a problem.
+        put('setting', 'project', {workdays: ['sat', 'mon']}, 'B'),
     );
-    assert.deepEqual(
-        [b.project.name, b.project.thresholds, b.project.workdays, b.project.monthStart],
-        ['Household', [5000n, 50000n], [1, 6], 25],
-    );
+    assert.deepEqual([b.project.name, b.project.thresholds, b.project.monthStart, b.problems], ['Household', [5000n, 50000n], 25, []]);
 });
 
 test('a renamed category keeps its rows; merged categories redirect, deleted ones become uncategorized', () => {
@@ -311,19 +307,19 @@ test('malformed records are reported, left out, and never block the rest', () =>
         put('account', 'kindless', {name: 'X', kind: 'company'}),
         put('budget', 'food', {amount: '-5'}),
         put('recurring', 'r', {entry: 'txn', template: {}, every: 'month', start: '2026-11-01'}),
-        put('setting', 'project', {workdays: ['monday']}, 'B'),
+        put('setting', 'project', {monthStart: 31}, 'B'),
     );
     assert.deepEqual(
         b.txns.map((t) => t.id),
         ['good'],
     );
-    assert.deepEqual(b.project.workdays, [1, 2, 3, 4, 5]);
+    assert.equal(b.project.monthStart, 1);
     assert.deepEqual(b.problems.map((p) => `${p.kind}:${p.id}`).sort(), [
         'account:kindless',
         'budget:food',
         'category:odd',
         'recurring:r',
-        'setting:workdays',
+        'setting:monthStart',
         'transfer:same',
         'txn:bad-amount',
         'txn:bad-intent',
@@ -399,11 +395,10 @@ test('field builders normalise and check form input', () => {
         () => recurringFields({entry: 'txn', template: {amount: '-1.00', account: 'cash'}, every: 'fortnight', start: '2026-11-01'}, 2),
         /unknown repeat/,
     );
-    assert.deepEqual(settingsFields({name: ' Home ', thresholds: ['250', ' 100 ', ''], workdays: ['mon', 'sun'], monthStart: '25'}, 2), {
+    assert.deepEqual(settingsFields({name: ' Home ', thresholds: ['250', ' 100 ', ''], monthStart: '25'}, 2), {
         name: 'Home',
         thresholds: ['100.00', '250.00'],
-        workdays: ['sun', 'mon'],
         monthStart: 25,
     });
-    assert.throws(() => settingsFields({name: 'x', thresholds: [], workdays: [], monthStart: 31}, 2), /day from 1 to 28/);
+    assert.throws(() => settingsFields({name: 'x', thresholds: [], monthStart: 31}, 2), /day from 1 to 28/);
 });
