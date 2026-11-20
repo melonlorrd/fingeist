@@ -23,6 +23,9 @@
     --tone-want: #b03f8f;
     --tone-impulse: #c4501f;
     --on-tone: #ffffff;
+    /* The lit top edge of a raised surface. */
+    --edge-light: rgba(255, 255, 255, 0.9);
+    --ambient-strength: 16%;
     color-scheme: light dark;
 
     /* Safe areas: the notch or Dynamic Island, the home indicator, and the sides of a phone in landscape. */
@@ -30,15 +33,36 @@
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --safe-left: env(safe-area-inset-left, 0px);
     --safe-right: env(safe-area-inset-right, 0px);
-    --gutter: 20px;
+    --gutter: 24px;
 
-    /* Shape: controls are capsules; containers use only these three radii. */
-    --r-inner: 10px;
-    --r-card: 14px;
-    --r-float: 18px;
+    /* Spacing: a 4px scale. */
+    --s-1: 4px;
+    --s-2: 8px;
+    --s-3: 12px;
+    --s-4: 16px;
+    --s-5: 20px;
+    --s-6: 24px;
+    --s-8: 32px;
+    --card-py: 18px;
+    --card-px: 20px;
+    --dialog-pad: 22px;
 
-    /* Floating layers (dialogs, popovers): solid, with a hairline edge and a soft shadow. */
+    /* Control heights: compact (pills, quiet buttons), regular, and large (the floating Add). */
+    --h-sm: 26px;
+    --h-md: 32px;
+    --h-lg: 48px;
+
+    /* Shape: compact controls are capsules; text fields and containers use these radii, rounder as they grow.
+       --r-mark is for data marks: chart bars, calendar cells. */
+    --r-mark: 6px;
+    --r-inner: 12px;
+    --r-card: 20px;
+    --r-float: 26px;
+
+    /* Raised and floating layers: a hairline edge and a soft shadow. */
     --hairline: color-mix(in srgb, var(--text) 11%, transparent);
+    --shadow-card: 0 1px 2px rgba(40, 30, 10, 0.04), 0 4px 14px rgba(40, 30, 10, 0.04);
+    --shadow-raise: 0 8px 26px rgba(0, 0, 0, 0.16), 0 0 0 0.5px var(--hairline);
     --shadow-float: 0 18px 44px rgba(0, 0, 0, 0.26), 0 0 0 0.5px var(--hairline);
 
     /* Motion: short, ease-out, only opacity, transform and colour; off when the OS asks for reduced motion. */
@@ -49,8 +73,10 @@
     /* A damped spring that overshoots by about 4% and settles. */
     --spring: linear(0, 0.09, 0.281, 0.494, 0.682, 0.828, 0.929, 0.992, 1.025, 1.037, 1.037, 1.032, 1.024, 1.016, 1.009, 1.004, 1.001, 1);
 
-    /* Glass is only for the top bar and the phone tab bar, where the page scrolls underneath. */
-    --glass-blur: saturate(180%) blur(20px);
+    /* Glass: floating layers over the page (bars, dialogs, popovers, notices). */
+    --glass-blur: saturate(180%) blur(22px);
+    --glass-bar: color-mix(in srgb, var(--bg) 70%, transparent);
+    --glass-float: color-mix(in srgb, var(--surface) 80%, transparent);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -77,6 +103,10 @@
         --tone-want: #d77ccb;
         --tone-impulse: #d95926;
         --on-tone: #0b1a2c;
+        --edge-light: rgba(255, 255, 255, 0.06);
+        --ambient-strength: 22%;
+        --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+        --hairline: color-mix(in srgb, var(--text) 14%, transparent);
     }
 }
 
@@ -95,6 +125,7 @@ html {
 }
 body {
     margin: 0;
+    min-height: 100dvh;
     background: var(--bg);
     color: var(--text);
     -webkit-tap-highlight-color: transparent;
@@ -107,6 +138,26 @@ body {
         sans-serif;
     -webkit-font-smoothing: antialiased;
 }
+/* A soft colour field behind the page, so the glass layers have something to blur. */
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+        radial-gradient(55% 45% at 8% 0%, color-mix(in srgb, var(--accent) var(--ambient-strength), transparent), transparent 70%),
+        radial-gradient(
+            45% 40% at 95% 12%,
+            color-mix(in srgb, var(--want) calc(var(--ambient-strength) * 0.6), transparent),
+            transparent 70%
+        ),
+        radial-gradient(
+            60% 45% at 50% 105%,
+            color-mix(in srgb, var(--income) calc(var(--ambient-strength) * 0.6), transparent),
+            transparent 70%
+        );
+}
 
 h1,
 h2,
@@ -115,14 +166,14 @@ p {
     margin: 0;
 }
 h1 {
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
 }
 h2 {
     font-size: 15px;
     font-weight: 650;
-    letter-spacing: -0.005em;
+    letter-spacing: -0.01em;
 }
 h3 {
     font-size: 13px;
@@ -131,7 +182,7 @@ h3 {
 }
 h4 {
     font-size: 12px;
-    margin: 10px 0 4px;
+    margin: var(--s-3) 0 var(--s-1);
     color: var(--muted);
 }
 small {
@@ -147,54 +198,61 @@ small {
     top: 0;
     z-index: 5;
     background: var(--bg);
-    border-bottom: 1px solid var(--line);
+    border-bottom: 0.5px solid var(--hairline);
     padding: var(--safe-top) var(--safe-right) 0 var(--safe-left);
 }
 .topbar-inner {
-    max-width: 1080px;
+    max-width: 1120px;
     margin: 0 auto;
-    padding: 8px var(--gutter);
+    padding: var(--s-2) var(--gutter);
     display: flex;
     flex-wrap: wrap;
-    gap: 6px 16px;
+    gap: var(--s-2) var(--s-4);
     align-items: center;
 }
 .brand-row {
     display: flex;
-    gap: 8px 12px;
+    gap: var(--s-2) var(--s-3);
     align-items: center;
     flex: 1;
     min-width: 0;
 }
 .brand {
-    font-size: 15px;
-    font-weight: 650;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
 }
 .page {
-    max-width: 1080px;
+    max-width: 1120px;
     margin: 0 auto;
-    padding: 16px calc(var(--gutter) + var(--safe-right)) calc(48px + var(--safe-bottom)) calc(var(--gutter) + var(--safe-left));
+    padding: var(--s-5) calc(var(--gutter) + var(--safe-right)) calc(56px + var(--safe-bottom)) calc(var(--gutter) + var(--safe-left));
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--s-4);
 }
 main > div {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--s-4);
 }
 
-/* Controls: all capsules */
+/* Controls. Buttons, pills, chips and selects are capsules; text fields are rounded rectangles. */
 button,
 input,
-select {
+select,
+textarea {
     font: inherit;
     color: inherit;
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: 999px;
-    padding: 4px 12px;
-    min-height: 28px;
+    padding: var(--s-1) 14px;
+    min-height: var(--h-md);
+}
+input:not([type="checkbox"], [type="color"], [type="radio"]),
+textarea {
+    border-radius: var(--r-inner);
+    padding: var(--s-1) var(--s-3);
 }
 button {
     cursor: pointer;
@@ -203,7 +261,7 @@ button:has(> .icon) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
+    gap: 6px;
 }
 .icon {
     width: 16px;
@@ -229,8 +287,8 @@ button.quiet {
     border-color: transparent;
     background: none;
     color: var(--muted);
-    padding: 2px 9px;
-    min-height: 24px;
+    padding: 2px 10px;
+    min-height: var(--h-sm);
 }
 button.danger {
     color: var(--danger);
@@ -243,18 +301,25 @@ button.destructive {
 }
 button.more {
     display: block;
-    margin: 10px auto;
+    margin: var(--s-3) auto;
+}
+/* The one selected style: a tinted fill, accent text, no outline. A --tone overrides the fill. */
+button.active {
+    background: var(--tone, var(--tint));
+    border-color: transparent;
+    color: var(--accent);
+    font-weight: 600;
 }
 .notice button {
-    margin-left: 10px;
+    margin-left: var(--s-3);
 }
 select {
     -webkit-appearance: none;
     appearance: none;
-    padding-right: 30px;
+    padding-right: 32px;
     background: var(--surface)
         url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238a9096' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
-        no-repeat right 12px center;
+        no-repeat right 13px center;
     cursor: pointer;
 }
 input[type="color"] {
@@ -283,7 +348,12 @@ input[type="checkbox"] {
 }
 :focus-visible {
     outline: 2px solid var(--accent);
-    outline-offset: 1px;
+    outline-offset: 2px;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline-offset: 0;
 }
 ::placeholder {
     color: var(--muted);
@@ -306,22 +376,17 @@ input[type="checkbox"] {
     border: 0;
     background: none;
     color: var(--muted);
-    padding: 3px 12px;
-    min-height: 24px;
+    padding: 3px 13px;
+    min-height: var(--h-sm);
     white-space: nowrap;
 }
 .pills button.active {
     background: var(--tone, var(--tint));
     color: var(--accent);
-    font-weight: 600;
 }
 .pills.wide {
     display: flex;
     align-self: stretch;
-}
-.pills.wrap {
-    flex-wrap: wrap;
-    border-radius: var(--r-inner);
 }
 .pills.wide button {
     flex: 1;
@@ -331,7 +396,8 @@ input[type="checkbox"] {
     --tone: var(--tone-expense);
     color: var(--on-tone);
 }
-.pills.wide button.active.income {
+.pills.wide button.active.income,
+.pills.wide button.active.refund {
     --tone: var(--tone-income);
     color: var(--on-tone);
 }
@@ -378,23 +444,26 @@ nav.pills,
 .card,
 .notice {
     background: var(--surface);
-    border: 1px solid var(--line);
+    border: 0.5px solid var(--hairline);
     border-radius: var(--r-card);
+    box-shadow:
+        var(--shadow-card),
+        inset 0 1px 0 var(--edge-light);
 }
 .card {
-    padding: 14px 16px;
+    padding: var(--card-py) var(--card-px);
 }
 .page-head {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px 16px;
+    gap: var(--s-3) var(--s-4);
     align-items: center;
     justify-content: space-between;
 }
 .head-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px 10px;
+    gap: var(--s-2);
     align-items: center;
 }
 /* Flex items default to never shrinking below their content; let them, so a scrolling row scrolls
@@ -411,18 +480,18 @@ nav.pills,
     flex-wrap: wrap;
     justify-content: space-between;
     align-items: baseline;
-    gap: 4px 12px;
-    margin-bottom: 10px;
+    gap: var(--s-1) var(--s-3);
+    margin-bottom: var(--s-3);
 }
 .card > h2 {
-    margin-bottom: 10px;
+    margin-bottom: var(--s-3);
 }
 .notice {
-    padding: 8px 14px;
+    padding: var(--s-2) var(--s-4);
 }
 .notice ul {
     margin: 6px 0 0;
-    padding-left: 20px;
+    padding-left: var(--s-5);
 }
 .notice.error {
     border-color: var(--danger);
@@ -432,15 +501,14 @@ nav.pills,
     position: fixed;
     z-index: 20;
     left: 50%;
-    bottom: calc(20px + var(--safe-bottom));
+    bottom: calc(var(--s-5) + var(--safe-bottom));
     transform: translateX(-50%);
     width: max-content;
     max-width: min(520px, calc(100vw - 32px - var(--safe-left) - var(--safe-right)));
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 8px 8px 16px;
-    border: 0.5px solid var(--hairline);
+    gap: var(--s-3);
+    padding: 6px 6px 6px var(--s-4);
     border-radius: var(--r-float);
     box-shadow: var(--shadow-float);
 }
@@ -460,33 +528,42 @@ p.error {
 
 .summary {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--s-3);
 }
 .summary-card {
+    container-type: inline-size;
     display: flex;
     flex-direction: column;
     gap: 2px;
 }
 .label {
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     font-size: 11px;
+    font-weight: 600;
     color: var(--muted);
 }
 .summary-card .label {
-    margin-bottom: 2px;
+    margin-bottom: var(--s-1);
 }
 .summary-card .change {
-    margin-top: 4px;
+    margin-top: 6px;
 }
+/* Sized to the card, so a long amount shrinks instead of breaking between digits. */
 .big {
-    font-size: 28px;
+    font-size: clamp(18px, 10.5cqi, 30px);
     line-height: 1.15;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
     overflow-wrap: anywhere;
+}
+.lead-figure {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
 }
 .change {
     display: inline-flex;
@@ -509,71 +586,61 @@ p.error {
 .chart-groups {
     display: flex;
     flex-direction: column;
-    gap: 22px;
+    gap: var(--s-8);
+    margin-top: var(--s-2);
 }
 .chart-group {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--s-3);
 }
 .group-title {
-    padding: 0 4px;
-    font-size: 13px;
-    font-weight: 600;
+    padding: 0 var(--s-1);
+    font-size: 12px;
+    font-weight: 650;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     color: var(--muted);
 }
 .charts {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr));
-    gap: 12px;
-}
-.chart-calendar_heatmap,
-.chart-running_balance,
-.chart-workday_routine,
-.chart-weekday_hour_heatmap,
-.chart-no_spend_calendar {
-    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-3);
 }
 .charts > .card {
     display: flex;
     flex-direction: column;
-}
-/* Its cells have a fixed size, so a long range scrolls inside the card. */
-.chart-calendar_heatmap {
-    overflow-x: auto;
+    min-width: 0;
 }
 .chart {
     flex: 1;
     width: 100%;
 }
 .tiles {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin: 8px 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: var(--s-2);
+    margin: var(--s-3) 0;
 }
 .tile {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
     font-variant-numeric: tabular-nums;
-    min-width: 110px;
-    padding: 8px 12px;
-    border: 1px solid var(--line);
+    padding: 10px var(--s-3);
     border-radius: var(--r-inner);
+    background: color-mix(in srgb, var(--text) 4%, transparent);
 }
 .month-nav {
     display: flex;
-    gap: 12px;
+    gap: var(--s-3);
     align-items: center;
     justify-content: space-between;
 }
 .two-columns {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 16px;
+    gap: var(--s-4);
 }
 ul.plain {
     list-style: none;
@@ -581,14 +648,175 @@ ul.plain {
     padding: 0;
 }
 .pills[aria-label="Threshold"] {
-    margin-bottom: 4px;
+    margin-bottom: var(--s-1);
+}
+
+/* A list row on a dashboard card: one button that opens the ledger, with a bar under its figures. */
+.stat-list {
+    margin: 0 calc(-1 * var(--s-2));
+}
+button.stat-row {
+    width: 100%;
+    min-height: 0;
+    border: 0;
+    border-radius: var(--r-inner);
+    background: none;
+    text-align: left;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 6px var(--s-3);
+    align-items: baseline;
+    padding: var(--s-2);
+}
+.stat-row .name {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.stat-row .change {
+    min-width: 64px;
+    justify-content: flex-end;
+    font-variant-numeric: tabular-nums;
+}
+.stat-row .bar {
+    grid-column: 1 / -1;
+}
+.bar {
+    height: 6px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--text) 7%, transparent);
+    overflow: hidden;
+}
+.bar > span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--c, var(--muted));
+}
+
+/* How spending splits between need, want and impulse. */
+.mix-bar {
+    display: flex;
+    gap: 3px;
+    height: 14px;
+    margin: var(--s-1) 0 var(--s-3);
+}
+.mix-bar > span {
+    border-radius: var(--r-mark);
+}
+.mix-bar > span:first-child {
+    border-radius: 999px var(--r-mark) var(--r-mark) 999px;
+}
+.mix-bar > span:last-child {
+    border-radius: var(--r-mark) 999px 999px var(--r-mark);
+}
+.mix-bar > span:only-child {
+    border-radius: 999px;
+}
+.mix-list li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto 64px;
+    gap: var(--s-3);
+    padding: 6px 0;
+    font-variant-numeric: tabular-nums;
+}
+.mix-list li + li {
+    border-top: 0.5px solid var(--line);
+}
+.mix-list .share {
+    text-align: right;
+    color: var(--muted);
+}
+.need {
+    --c: var(--need);
+}
+.want {
+    --c: var(--want);
+}
+.impulse {
+    --c: var(--impulse);
+}
+
+/* Spending calendar: one month, shaded by spend, zero-expense days marked. */
+.cal {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 5px;
+    width: 100%;
+    max-width: 440px;
+    margin: var(--s-1) auto 0;
+}
+.cal > small {
+    text-align: center;
+    color: var(--muted);
+    padding-bottom: 2px;
+}
+.cal-day {
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-mark);
+    background: color-mix(in srgb, var(--text) 5%, transparent);
+    color: var(--muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+.cal-day.zero {
+    background: color-mix(in srgb, var(--income) 16%, transparent);
+    color: var(--income);
+    font-weight: 650;
+}
+.cal-day.future,
+.cal-day.outside {
+    background: none;
+    opacity: 0.55;
+}
+.cal-day.l1 {
+    background: var(--heat-low);
+    color: var(--text);
+}
+.cal-day.l2 {
+    background: color-mix(in srgb, var(--heat-high) 40%, var(--heat-low));
+    color: var(--text);
+}
+.cal-day.l3 {
+    background: color-mix(in srgb, var(--heat-high) 72%, var(--heat-low));
+    color: var(--on-accent);
+}
+.cal-day.l4 {
+    background: var(--heat-high);
+    color: var(--on-accent);
+    font-weight: 650;
+}
+.cal-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 6px var(--s-2);
+    margin-top: var(--s-3);
+    color: var(--muted);
+    font-size: 12px;
+}
+.cal-legend .cal-day {
+    width: 12px;
+    border-radius: 3px;
+}
+.cal-legend .zero {
+    margin-left: var(--s-3);
 }
 
 /* Date picker: a popover */
 .range-pickers {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: var(--s-2);
     align-items: center;
 }
 .date-picker {
@@ -607,11 +835,11 @@ ul.plain {
     top: calc(100% + 6px);
     left: 0;
     z-index: 30;
-    width: 252px;
-    padding: 10px;
+    width: 260px;
+    padding: var(--s-3);
     background: var(--surface);
     border: 0.5px solid var(--hairline);
-    border-radius: var(--r-card);
+    border-radius: var(--r-float);
     box-shadow: var(--shadow-float);
 }
 .date-popover.above {
@@ -622,7 +850,7 @@ ul.plain {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 4px;
+    margin-bottom: var(--s-1);
 }
 .date-grid {
     display: grid;
@@ -636,7 +864,7 @@ ul.plain {
 .date-grid button {
     border: 0;
     background: none;
-    padding: 4px 0;
+    padding: var(--s-1) 0;
     min-height: 0;
     font-variant-numeric: tabular-nums;
 }
@@ -651,20 +879,20 @@ ul.plain {
 .date-foot {
     display: flex;
     justify-content: space-between;
-    margin-top: 4px;
+    margin-top: var(--s-1);
 }
 
 /* Ledger and lists */
 .filter-bar {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px 10px;
+    gap: var(--s-2) 10px;
     align-items: center;
 }
 .filter-bar input[type="search"] {
     flex: 1;
     min-width: min(220px, 100%);
-    padding-left: 34px;
+    padding-left: 36px;
     background: var(--surface)
         url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath d='M10.5 4a6.5 6.5 0 1 1 0 13a6.5 6.5 0 1 1 0-13M15.5 15.5L20 20' fill='none' stroke='%238a9096' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E")
         no-repeat 12px center;
@@ -689,8 +917,8 @@ ul.plain {
 button.filter-chip {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding-right: 8px;
+    gap: var(--s-1);
+    padding-right: 10px;
     background: var(--tint);
     border-color: transparent;
     color: var(--accent);
@@ -703,14 +931,15 @@ button.filter-chip {
 .stats {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px 20px;
+    gap: var(--s-1) var(--s-5);
     margin: 0;
     flex: 1;
 }
 .stats dt {
     font-size: 11px;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     color: var(--muted);
 }
 .stats dd {
@@ -730,7 +959,7 @@ button.filter-chip {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    padding: 8px 8px 6px;
+    padding: 10px var(--s-3) 6px;
     background: var(--bg);
 }
 .day {
@@ -747,42 +976,44 @@ ul.rows.card {
 }
 /* A list inside a card runs edge to edge under the card's text, so it isn't a box in a box. */
 .card > ul.rows.card {
-    margin: 10px -16px 0;
+    margin: var(--s-3) calc(-1 * var(--card-px)) 0;
     border: 0;
-    border-top: 1px solid var(--line);
+    border-top: 0.5px solid var(--line);
     border-radius: 0;
+    box-shadow: none;
+    background: none;
 }
 .card > ul.rows.card:last-child {
-    margin-bottom: -14px;
+    margin-bottom: calc(-1 * var(--card-py));
 }
 ul.rows > li + li {
-    border-top: 1px solid var(--line);
+    border-top: 0.5px solid var(--line);
 }
 button.row {
     width: 100%;
-    min-height: 52px;
+    min-height: 56px;
     border: 0;
     border-radius: 0;
     background: none;
     text-align: left;
     display: grid;
     grid-template-columns: 16px minmax(0, 1fr) auto auto;
-    gap: 12px;
+    gap: var(--s-3);
     align-items: center;
-    padding: 8px 16px;
+    padding: 10px var(--card-px);
 }
 button.row.selected {
     background: var(--tint);
 }
 button.row:has(> .avatar) {
-    grid-template-columns: 30px minmax(0, 1fr) auto auto;
+    grid-template-columns: 32px minmax(0, 1fr) auto auto;
 }
 .avatar {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     background: var(--tint);
     color: var(--accent);
@@ -810,7 +1041,7 @@ button.row:has(> .avatar) {
 }
 .selects {
     display: flex;
-    gap: 8px;
+    gap: var(--s-2);
     flex-wrap: wrap;
 }
 .row .what {
@@ -832,7 +1063,7 @@ button.row:has(> .avatar) {
     width: 9px;
     height: 9px;
     border-radius: 50%;
-    margin-right: 6px;
+    margin-right: var(--s-2);
     flex: none;
 }
 .row .dots {
@@ -892,7 +1123,7 @@ button.row:has(> .avatar) {
 .setup-choice {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
-    gap: 12px;
+    gap: var(--s-3);
 }
 
 /* Dialogs */
@@ -901,8 +1132,10 @@ dialog {
     color: var(--text);
     border: 0.5px solid var(--hairline);
     border-radius: var(--r-float);
-    box-shadow: var(--shadow-float);
-    padding: 20px;
+    box-shadow:
+        var(--shadow-float),
+        inset 0 1px 0 var(--edge-light);
+    padding: var(--dialog-pad);
     width: min(500px, calc(100vw - 32px));
     max-height: calc(100dvh - 32px - var(--safe-top) - var(--safe-bottom));
     overflow-y: auto;
@@ -917,8 +1150,8 @@ dialog::backdrop {
     align-items: center;
 }
 button.close {
-    width: 26px;
-    height: 26px;
+    width: 30px;
+    height: 30px;
     min-height: 0;
     padding: 0;
     border-radius: 50%;
@@ -926,7 +1159,7 @@ button.close {
 .form {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 14px;
 }
 .form > button.quiet {
     align-self: flex-start;
@@ -936,7 +1169,7 @@ button.close {
 .field {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 6px;
 }
 .field > span {
     color: var(--muted);
@@ -946,8 +1179,8 @@ button.close {
 .amount-input {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 14px;
+    gap: var(--s-2);
+    padding: var(--s-2) var(--s-4);
     border: 1px solid var(--line);
     border-radius: var(--r-inner);
     background: var(--surface);
@@ -965,8 +1198,9 @@ button.close {
     border: 0;
     padding: 0;
     min-height: 0;
-    font-size: 24px;
-    font-weight: 600;
+    font-size: 26px;
+    font-weight: 650;
+    letter-spacing: -0.02em;
     background: none;
     outline: none;
     min-width: 0;
@@ -981,18 +1215,14 @@ button.close {
     align-items: center;
 }
 .chips .chip {
-    padding: 3px 12px;
-}
-.chips .chip.active {
-    border-color: var(--accent);
-    box-shadow: inset 0 0 0 1px var(--accent);
-    font-weight: 600;
+    padding: 3px 13px;
+    min-height: var(--h-sm);
 }
 details.when summary {
     display: inline-flex;
     align-items: center;
-    min-height: 28px;
-    padding: 4px 14px;
+    min-height: var(--h-md);
+    padding: var(--s-1) 14px;
     border: 1px solid var(--line);
     border-radius: 999px;
     cursor: pointer;
@@ -1003,17 +1233,17 @@ details.when summary::-webkit-details-marker {
     display: none;
 }
 details.when[open] summary {
-    margin-bottom: 10px;
+    margin-bottom: var(--s-3);
     border-color: var(--accent);
 }
 .balance-rows {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--s-2);
 }
 .balance-row {
     display: flex;
-    gap: 8px;
+    gap: var(--s-2);
 }
 .balance-row input:first-child {
     flex: 2;
@@ -1032,7 +1262,7 @@ details.when[open] summary {
     display: flex;
     justify-content: flex-end;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: var(--s-2);
     margin-top: 2px;
 }
 .form-actions .grow {
@@ -1040,45 +1270,96 @@ details.when[open] summary {
 }
 dialog .form-actions {
     position: sticky;
-    bottom: -20px;
-    margin: 0 -20px -20px;
-    padding: 10px 20px calc(10px + var(--safe-bottom));
+    bottom: calc(-1 * var(--dialog-pad));
+    margin: 0 calc(-1 * var(--dialog-pad)) calc(-1 * var(--dialog-pad));
+    padding: var(--s-3) var(--dialog-pad) calc(var(--s-3) + var(--safe-bottom));
     background: var(--surface);
-    border-top: 1px solid var(--line);
-}
-.checks {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-.checks label {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 12px;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    cursor: pointer;
+    border-top: 0.5px solid var(--hairline);
 }
 .settings {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--s-4);
 }
 .settings-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
-    gap: 12px;
+    gap: var(--s-3);
 }
+.split-part {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px var(--s-3);
+    border-radius: var(--r-inner);
+    background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+.badges {
+    display: inline-flex;
+    gap: var(--s-1);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+.budget-list li {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: var(--s-2) 0;
+}
+.budget-list li + li {
+    border-top: 0.5px solid var(--line);
+}
+.budget-line {
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: baseline;
+}
+.meter {
+    height: 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--text) 7%, transparent);
+    overflow: hidden;
+}
+.meter span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--income);
+}
+.budget-list li.over .meter span {
+    background: var(--expense);
+}
+
 @media (hover: hover) {
     button:hover:not(:disabled) {
+        border-color: color-mix(in srgb, var(--text) 24%, transparent);
+    }
+    button.primary:hover:not(:disabled) {
         border-color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 88%, var(--text));
     }
     button.quiet:hover:not(:disabled),
     button.row:hover,
+    button.stat-row:hover,
     .date-grid button:hover {
         color: var(--text);
-        background: var(--tint);
+        background: color-mix(in srgb, var(--text) 5%, transparent);
+    }
+    button.cal-day:hover {
+        box-shadow: inset 0 0 0 2px var(--accent);
+    }
+}
+
+/* Two columns of dashboard cards; a card left alone on the last row takes the whole width. */
+@media (min-width: 860px) {
+    .charts {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .charts > .card:last-child:nth-child(odd) {
+        grid-column: 1 / -1;
     }
 }
 
@@ -1092,7 +1373,7 @@ dialog .form-actions {
    the top bar stays on one line; each label stays readable to screen readers. */
 @media (min-width: 701px) and (max-width: 980px) {
     nav.tabs button {
-        padding: 4px 10px;
+        padding: var(--s-1) 10px;
     }
     nav.tabs button > span,
     .sync-state > :not(.dot) {
@@ -1108,30 +1389,29 @@ dialog .form-actions {
     }
 }
 
-/* Phones and narrow windows: the nav moves to the bottom, Add floats above it, dialogs become sheets. */
+/* Phones and narrow windows: the nav floats at the bottom as a capsule, Add floats above it, dialogs become sheets. */
 @media (max-width: 700px) {
     :root {
-        --gutter: 12px;
+        --gutter: 14px;
+        --card-py: 14px;
+        --card-px: 16px;
+        --dialog-pad: 18px;
+        --tab-h: 58px;
+        --island-bottom: max(10px, calc(var(--safe-bottom) - 8px));
     }
     .page {
-        padding-top: 10px;
-        padding-bottom: calc(132px + var(--safe-bottom));
+        padding-top: var(--s-3);
+        padding-bottom: calc(var(--island-bottom) + var(--tab-h) + 88px);
+        gap: var(--s-3);
     }
-    .card {
-        padding: 12px 14px;
-    }
-    .card > ul.rows.card {
-        margin-left: -14px;
-        margin-right: -14px;
-    }
-    .card > ul.rows.card:last-child {
-        margin-bottom: -12px;
+    main > div {
+        gap: var(--s-3);
     }
     h1 {
-        font-size: 20px;
+        font-size: 21px;
     }
     .toast {
-        bottom: calc(136px + var(--safe-bottom));
+        bottom: calc(var(--island-bottom) + var(--tab-h) + 80px);
     }
     /* Many categories scroll sideways in two rows instead of pushing the form down. */
     .chips {
@@ -1156,13 +1436,13 @@ dialog .form-actions {
     }
     .summary {
         grid-template-columns: 1fr 1fr;
-        gap: 8px;
-    }
-    .big {
-        font-size: clamp(18px, 5.6vw, 24px);
+        gap: var(--s-2);
     }
     .summary-card .change {
         font-size: 11.5px;
+    }
+    .chart-groups {
+        gap: var(--s-6);
     }
     .page-head {
         flex-direction: column;
@@ -1183,24 +1463,26 @@ dialog .form-actions {
 
     nav.tabs {
         position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        left: 50%;
+        bottom: var(--island-bottom);
         z-index: 10;
+        transform: translateX(-50%);
+        width: min(480px, calc(100% - 24px - var(--safe-left) - var(--safe-right)));
         display: flex;
-        border: 0;
-        border-top: 1px solid var(--line);
-        border-radius: 0;
+        padding: var(--s-1);
+        border: 0.5px solid var(--hairline);
         background: var(--surface);
-        padding: 6px calc(6px + var(--safe-right)) calc(6px + var(--safe-bottom)) calc(6px + var(--safe-left));
+        box-shadow:
+            var(--shadow-raise),
+            inset 0 1px 0 var(--edge-light);
     }
     nav.tabs button {
         flex: 1;
         flex-direction: column;
-        gap: 2px;
-        min-height: 50px;
-        padding: 0 4px;
-        font-size: 11px;
+        gap: 1px;
+        min-height: calc(var(--tab-h) - 10px);
+        padding: 0 2px;
+        font-size: 10.5px;
     }
     nav.tabs .icon {
         width: 20px;
@@ -1208,14 +1490,14 @@ dialog .form-actions {
     }
     .add-button {
         position: fixed;
-        right: calc(16px + var(--safe-right));
-        bottom: calc(74px + var(--safe-bottom));
+        right: calc(14px + var(--safe-right));
+        bottom: calc(var(--island-bottom) + var(--tab-h) + 12px);
         z-index: 11;
         min-height: 52px;
         min-width: 52px;
         padding: 0 22px;
         font-size: 16px;
-        box-shadow: var(--shadow-float);
+        box-shadow: var(--shadow-raise);
     }
     .add-button .icon {
         width: 20px;
@@ -1239,13 +1521,13 @@ dialog .form-actions {
         max-width: 100%;
         max-height: calc(100dvh - var(--safe-top) - 12px);
         border-radius: var(--r-float) var(--r-float) 0 0;
-        padding: 16px calc(16px + var(--safe-right)) 20px calc(16px + var(--safe-left));
+        padding: var(--dialog-pad) calc(var(--dialog-pad) + var(--safe-right)) var(--s-5) calc(var(--dialog-pad) + var(--safe-left));
     }
     dialog .form-actions {
-        margin-left: calc(-16px - var(--safe-left));
-        margin-right: calc(-16px - var(--safe-right));
-        padding-left: calc(16px + var(--safe-left));
-        padding-right: calc(16px + var(--safe-right));
+        margin-left: calc(-1 * var(--dialog-pad) - var(--safe-left));
+        margin-right: calc(-1 * var(--dialog-pad) - var(--safe-right));
+        padding-left: calc(var(--dialog-pad) + var(--safe-left));
+        padding-right: calc(var(--dialog-pad) + var(--safe-right));
     }
 
     button.row {
@@ -1265,41 +1547,26 @@ dialog .form-actions {
         grid-row: 1 / span 2;
     }
     button.row:has(> .avatar) {
-        grid-template-columns: 30px minmax(0, 1fr) auto;
+        grid-template-columns: 32px minmax(0, 1fr) auto;
     }
     .stats {
-        gap: 4px 14px;
-    }
-
-    /* Wide charts scroll inside their card instead of squeezing 24 hours into a phone. */
-    .chart-weekday_hour_heatmap {
-        overflow-x: auto;
-    }
-    .chart-weekday_hour_heatmap .chart {
-        min-width: 600px;
+        gap: var(--s-1) 14px;
     }
 }
 
 /* Touch screens: bigger targets, and 16px inputs so iOS doesn't zoom in on focus. */
 @media (pointer: coarse) {
+    :root {
+        --h-sm: 36px;
+        --h-md: 40px;
+    }
     body {
         font-size: 15px;
-    }
-    button,
-    input,
-    select {
-        min-height: 40px;
     }
     input,
     select,
     textarea {
         font-size: 16px;
-    }
-    .pills button,
-    button.quiet,
-    .chips .chip,
-    .date-grid button {
-        min-height: 36px;
     }
     input[type="color"],
     input[type="checkbox"] {
@@ -1309,84 +1576,15 @@ dialog .form-actions {
         width: 40px;
         height: 40px;
     }
-    details.when summary {
-        padding: 9px 0;
+    .date-grid button {
+        min-height: 36px;
+    }
+    .cal-day {
+        min-height: 0;
     }
     .amount-input input {
-        font-size: 26px;
+        font-size: 28px;
     }
-}
-
-/* Splits, badges, budgets, comparisons */
-.split-part {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 8px 10px;
-    border: 1px solid var(--line);
-    border-radius: var(--r-inner);
-}
-.badges {
-    display: inline-flex;
-    gap: 4px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-}
-.budget-list li {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 6px 0;
-}
-.budget-list li + li {
-    border-top: 1px solid var(--line);
-}
-.budget-line {
-    font-variant-numeric: tabular-nums;
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    flex-wrap: wrap;
-    align-items: baseline;
-}
-.meter {
-    height: 8px;
-    border-radius: 999px;
-    background: var(--line);
-    overflow: hidden;
-}
-.meter span {
-    display: block;
-    height: 100%;
-    border-radius: 999px;
-    background: var(--income);
-}
-.budget-list li.over .meter span {
-    background: var(--expense);
-}
-.compare-list li {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto auto;
-    gap: 10px;
-    align-items: baseline;
-    padding: 5px 0;
-}
-.compare-list li + li {
-    border-top: 1px solid var(--line);
-}
-.compare-list button.quiet {
-    justify-self: start;
-    padding-left: 0;
-    color: var(--text);
-}
-.pills button.active,
-button.active {
-    background: var(--tone, var(--tint));
-    color: var(--accent);
-}
-.pills.wide button.active.refund {
-    --tone: var(--tone-income);
-    color: var(--on-tone);
 }
 
 @keyframes rise-in {
@@ -1401,16 +1599,29 @@ button.active {
     }
 }
 
+/* Glass: floating layers turn translucent over a blur, unless the OS asks for reduced transparency. */
 @media (prefers-reduced-transparency: no-preference) {
     @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-        .topbar {
-            background: color-mix(in srgb, var(--bg) 72%, transparent);
+        .topbar,
+        .day > header {
+            background: var(--glass-bar);
             -webkit-backdrop-filter: var(--glass-blur);
             backdrop-filter: var(--glass-blur);
         }
+        dialog,
+        .date-popover,
+        .toast,
+        dialog .form-actions {
+            background: var(--glass-float);
+            -webkit-backdrop-filter: var(--glass-blur);
+            backdrop-filter: var(--glass-blur);
+        }
+        .toast.error {
+            background: color-mix(in srgb, var(--danger) 10%, var(--glass-float));
+        }
         @media (max-width: 700px) {
             nav.tabs {
-                background: color-mix(in srgb, var(--surface) 72%, transparent);
+                background: var(--glass-float);
                 -webkit-backdrop-filter: var(--glass-blur);
                 backdrop-filter: var(--glass-blur);
             }
@@ -1422,8 +1633,7 @@ button.active {
     button,
     input,
     select,
-    .amount-input,
-    .checks label {
+    .amount-input {
         transition:
             background-color var(--t-fast) var(--ease),
             border-color var(--t-fast) var(--ease),
@@ -1431,7 +1641,7 @@ button.active {
             box-shadow var(--t-fast) var(--ease),
             transform var(--t-spring) var(--spring);
     }
-    button:not(.row):active:not(:disabled) {
+    button:not(.row, .stat-row, .cal-day):active:not(:disabled) {
         transform: scale(0.95);
         transition-duration: var(--t-fast);
     }

@@ -1,15 +1,6 @@
 import {closeDialog, el, field, formDialog, pageHeader} from './dom.js';
 import {eraseDevice, syncCard} from './sync.js';
 
-const DAYS = [
-    ['mon', 'Mon'],
-    ['tue', 'Tue'],
-    ['wed', 'Wed'],
-    ['thu', 'Thu'],
-    ['fri', 'Fri'],
-    ['sat', 'Sat'],
-    ['sun', 'Sun'],
-];
 const EVERY = {day: 'every day', week: 'every week', month: 'every month', year: 'every year'};
 
 const section = (title, hint, ...children) =>
@@ -49,22 +40,6 @@ export async function render(container, ctx) {
                     `Amounts in ${s.currency}, separated by commas.`,
                 ),
             ),
-            section(
-                'Workdays',
-                'Used by the workday routine chart.',
-                el(
-                    'div',
-                    {className: 'checks', role: 'group', 'aria-label': 'Workdays'},
-                    DAYS.map(([value, label]) =>
-                        el(
-                            'label',
-                            {},
-                            el('input', {type: 'checkbox', name: 'workday', value, checked: s.workdays.includes(value)}),
-                            label,
-                        ),
-                    ),
-                ),
-            ),
         ),
     );
     form.addEventListener('submit', async (event) => {
@@ -74,7 +49,7 @@ export async function render(container, ctx) {
             ctx.app.saveSettings({
                 name: data.get('name'),
                 thresholds: String(data.get('thresholds') ?? '').split(','),
-                workdays: data.getAll('workday'),
+                workdays: s.workdays,
                 monthStart: data.get('monthStart'),
             }),
         );

@@ -40,10 +40,6 @@ export function accountName(project, id) {
     return project.accountById.get(id)?.name ?? 'Deleted account';
 }
 
-export function isWorkday(project, weekday) {
-    return project.workdays.includes(weekday);
-}
-
 export function byText(a, b) {
     return a < b ? -1 : a > b ? 1 : 0;
 }

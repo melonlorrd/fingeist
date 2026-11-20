@@ -1,5 +1,5 @@
 import {basisPoints, formatBasisPoints} from '../money.js';
-import {addDays, addMonths, cycleOf, daysBetween, mondayFirst, weekdayOf} from '../time.js';
+import {addDays, addMonths, cycleOf} from '../time.js';
 import {amountOf, byText, categoryColor, categoryName, compareBig, maxBig} from './amount.js';
 import {expenseTxns, linesOf, spendingLines} from './lines.js';
 import {bounds, filterRange} from './scope.js';
@@ -60,32 +60,6 @@ export function rankCategories(spent, project) {
             spent: amountOf(total, project),
         }))
         .sort((a, b) => compareBig(b.spent.minor, a.spent.minor) || byText(a.name, b.name));
-}
-
-export function byCategory(txns, project) {
-    return rankCategories(sumByCategory(spendingLines(txns)), project);
-}
-
-export function dailySpending(txns, project) {
-    /** @type {Map<string, bigint>} */
-    const spent = new Map();
-    for (const line of spendingLines(txns)) {
-        spent.set(line.date, (spent.get(line.date) ?? 0n) + line.spend);
-    }
-    const days = [...spent]
-        .filter(([, total]) => total > 0n)
-        .map(([date, total]) => ({date, spent: amountOf(total, project)}))
-        .sort((a, b) => byText(a.date, b.date));
-    const peak = days.reduce((max, d) => maxBig(max, d.spent.minor), 0n);
-    const from = days[0]?.date ?? '';
-    const to = days.at(-1)?.date ?? '';
-    return {days, from, to, weeks: from ? weekColumns(from, to) : 0, max: amountOf(peak, project)};
-}
-
-// Monday-first calendar columns from the week holding `from` to the week holding `to`.
-function weekColumns(from, to) {
-    const span = mondayFirst(weekdayOf(from)) + daysBetween(from, to);
-    return (span - (span % 7)) / 7 + 1;
 }
 
 /** The own accounts a balance covers: the one in view, or every own account. */
@@ -157,8 +131,25 @@ export function intentTrends(txns, project) {
         const s = sums.get(month) ?? {need: 0n, want: 0n, impulse: 0n};
         return {month, need: amountOf(s.need, project), want: amountOf(s.want, project), impulse: amountOf(s.impulse, project)};
     });
-    return {intentMonths, noIntent};
+    return {intentMonths, noIntent, mix: intentMix([...sums.values()], project)};
 }
+
+/** Each intent's spending over the whole range and its share of all spending with an intent. */
+function intentMix(monthSums, project) {
+    const totals = {need: 0n, want: 0n, impulse: 0n};
+    for (const s of monthSums) {
+        for (const intent of INTENTS) {
+            totals[intent] += s[intent];
+        }
+    }
+    const all = totals.need + totals.want + totals.impulse;
+    return INTENTS.map((intent) => {
+        const bp = basisPoints(totals[intent], all);
+        return {intent, total: amountOf(totals[intent], project), share: formatBasisPoints(bp), shareSize: Number(bp)};
+    });
+}
+
+const INTENTS = /** @type {const} */ (['need', 'want', 'impulse']);
 
 export function smallPurchases(txns, project) {
     const expenses = expenseTxns(txns);
@@ -186,29 +177,34 @@ function changeText(now, before) {
     return formatBasisPoints(basisPoints(now - before, before < 0n ? -before : before), true);
 }
 
-/** Spending per category in the range against the period of the same length before it. */
-export function categoryCompare(allTxns, project, scope, previous) {
+/**
+ * Spending per category in the range, largest first, each against the period of the same length before it.
+ * barSize is the row's spending in basis points of the largest, for drawing its bar.
+ */
+export function byCategory(allTxns, project, scope, previous) {
     const now = sumByCategory(spendingLines(filterRange(scope, allTxns)));
     const before = previous ? sumByCategory(spendingLines(filterRange(previous, allTxns))) : new Map();
+    const largest = [...now.values()].reduce(maxBig, 0n);
     const ids = new Set([...now.keys(), ...before.keys()]);
     const rows = [...ids]
         .map((id) => {
-            const current = now.get(id) ?? 0n;
+            const spent = now.get(id) ?? 0n;
             const earlier = before.get(id) ?? 0n;
+            const bar = spent > 0n ? basisPoints(spent, largest) : 0n;
             return {
                 category: id,
                 name: categoryName(project, id),
                 color: categoryColor(project, id),
-                current: amountOf(current, project),
+                spent: amountOf(spent, project),
                 previous: amountOf(earlier, project),
-                change: previous ? changeText(current, earlier) : '',
+                change: previous ? changeText(spent, earlier) : '',
+                barSize: Number(bar),
             };
         })
-        .filter((r) => r.current.minor !== 0n || r.previous.minor !== 0n);
+        .filter((r) => r.spent.minor !== 0n || r.previous.minor !== 0n);
     return {
-        compare: rows.sort(
-            (a, b) =>
-                compareBig(b.current.minor, a.current.minor) || compareBig(b.previous.minor, a.previous.minor) || byText(a.name, b.name),
+        categories: rows.sort(
+            (a, b) => compareBig(b.spent.minor, a.spent.minor) || compareBig(b.previous.minor, a.previous.minor) || byText(a.name, b.name),
         ),
         previousFrom: previous?.from ?? '',
         previousTo: previous?.to ?? '',

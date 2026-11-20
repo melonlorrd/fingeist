@@ -226,6 +226,15 @@ test('every screen and dialog with a full book', async () => {
     await start(app);
     await visitEverything('full');
 
+    await click('Dashboard', document.querySelector('nav') ?? document);
+    assert.ok(document.querySelector('.cal button.cal-day'), 'the spending calendar has a day to open');
+    const foodRow = [...document.querySelectorAll('button.stat-row')].find((b) => b.textContent?.includes('Food'));
+    assert.ok(foodRow, 'no category row for Food');
+    foodRow.click();
+    await settle();
+    assert.ok(document.querySelector('button[aria-label="Remove filter: Food"]'), 'a category row opens the ledger filtered to it');
+    await click('Clear all');
+
     await click('Ledger', document.querySelector('nav') ?? document);
     const options = (label) => [...document.querySelectorAll(`main select[aria-label="${label}"] option`)].map((o) => o.textContent);
     assert.ok(options('Category').includes('Food'), `ledger category filter lists: ${options('Category')}`);

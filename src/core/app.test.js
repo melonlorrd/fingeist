@@ -478,7 +478,7 @@ test('dashboard follows the range and account', async () => {
     assert.equal(app.dashboard().summary.cards[0].value.text, '₹40.00');
     assert.equal(app.dashboard({account: ids(app).Card}).summary.cards[0].value.text, '₹30.00');
     assert.equal(app.dashboard({from: '2026-11-16'}).summary.cards[0].value.text, '₹0.00');
-    assert.equal(app.dashboard().charts.length, 11);
+    assert.equal(app.dashboard().charts.length, 8);
     assert.throws(() => app.dashboard({from: '2026-12-01', to: '2026-11-01'}), /after the end date/);
 });
 

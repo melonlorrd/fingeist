@@ -142,11 +142,12 @@ test('by_category', () => {
         txn('2026-11-08T10:00:00Z', -800n, 'transport'),
         txn('2026-11-09T10:00:00Z', 800n, 'transport', {refund: true}),
     ]).categories;
+    const none = a(0n, '$0.00');
     assert.deepEqual(categories, [
-        {category: 'groceries', name: 'groceries', color: '#111111', spent: a(1200n, '$12.00')},
-        {category: 'transport', name: 'transport', color: '#222222', spent: a(1200n, '$12.00')},
-        {category: '', name: 'Uncategorized', color: '', spent: a(300n, '$3.00')},
-        {category: 'old', name: 'old', color: '#444444', spent: a(50n, '$0.50')},
+        {category: 'groceries', name: 'groceries', color: '#111111', spent: a(1200n, '$12.00'), previous: none, change: '', barSize: 10000},
+        {category: 'transport', name: 'transport', color: '#222222', spent: a(1200n, '$12.00'), previous: none, change: '', barSize: 10000},
+        {category: '', name: 'Uncategorized', color: '', spent: a(300n, '$3.00'), previous: none, change: '', barSize: 2500},
+        {category: 'old', name: 'old', color: '#444444', spent: a(50n, '$0.50'), previous: none, change: '', barSize: 417},
     ]);
     assert.deepEqual(chart('by_category', [txn('2026-11-06T10:00:00Z', 100n, 'salary')]).categories, []);
 });
@@ -201,36 +202,44 @@ test('something a friend paid for you is your spending, and you owe them', () =>
     );
 });
 
-test('calendar_heatmap', () => {
-    const c = chart('calendar_heatmap', [
-        txn('2026-11-07T23:30:00-05:00', -500n),
-        txn('2026-11-07T01:00:00-05:00', -250n),
-        txn('2026-11-09T09:00:00+09:00', -1000n),
-        txn('2026-11-08T00:00:00Z', 9999n),
-    ]);
-    assert.deepEqual(c.days, [
-        {date: '2026-11-07', spent: a(750n, '$7.50')},
-        {date: '2026-11-09', spent: a(1000n, '$10.00')},
-    ]);
-    assert.deepEqual([c.from, c.to, c.max], ['2026-11-07', '2026-11-09', a(1000n, '$10.00')]);
-    assert.equal(c.weeks, 2, 'Saturday to Monday spans two Monday-first weeks');
+test('spending_calendar shades each day by what was spent', () => {
+    const c = chart(
+        'spending_calendar',
+        [
+            txn('2026-11-07T23:30:00-05:00', -500n),
+            txn('2026-11-07T01:00:00-05:00', -250n),
+            txn('2026-11-09T09:00:00+09:00', -1000n),
+            txn('2026-11-10T09:00:00Z', -1n),
+            txn('2026-11-08T00:00:00Z', 9999n),
+            txn('2026-11-11T09:00:00Z', 300n, '', {refund: true}),
+        ],
+        {from: '2026-11-01', to: '2026-11-30', today: '2026-11-11'},
+    );
+    const day = (date) => c.months[0].days.find((d) => d.date === date);
+    assert.deepEqual(day('2026-11-07'), {date: '2026-11-07', status: 'spent', spent: a(750n, '$7.50'), level: 3});
+    assert.deepEqual(day('2026-11-09'), {date: '2026-11-09', status: 'spent', spent: a(1000n, '$10.00'), level: 4});
+    assert.deepEqual([day('2026-11-10').level, day('2026-11-10').spent.text], [1, '$0.01'], 'any spending is at least level 1');
+    assert.deepEqual([day('2026-11-08').status, day('2026-11-08').level], ['zero', 0], 'income is not spending');
+    assert.deepEqual([day('2026-11-11').status, day('2026-11-11').level], ['zero', 0], 'a refund is not spending');
+    assert.deepEqual([day('2026-11-12').status, day('2026-11-12').spent.text], ['future', '$0.00']);
+    assert.equal(c.max.text, '$10.00');
 });
 
-test('calendar_heatmap week columns', async (t) => {
+test('spending_calendar levels follow the biggest day in the range', async (t) => {
     const cases = [
-        ['no spending', [], 0],
-        ['one day', ['2026-11-18'], 1],
-        ['Monday to Sunday', ['2026-11-16', '2026-11-22'], 1],
-        ['Sunday to Monday', ['2026-11-15', '2026-11-16'], 2],
-        ['a whole year', ['2026-01-01', '2026-12-31'], 53],
+        ['a quarter of the biggest day', -250n, 1],
+        ['just over a quarter', -251n, 2],
+        ['half', -500n, 2],
+        ['three quarters', -750n, 3],
+        ['just under the biggest', -999n, 4],
     ];
-    for (const [name, dates, weeks] of cases) {
+    for (const [name, amount, level] of cases) {
         await t.test(name, () => {
-            const c = chart(
-                'calendar_heatmap',
-                dates.map((d) => txn(`${d}T10:00:00Z`, -100n)),
-            );
-            assert.equal(c.weeks, weeks);
+            const c = chart('spending_calendar', [txn('2026-11-02T10:00:00Z', -1000n), txn('2026-11-03T10:00:00Z', amount)], {
+                from: '2026-11-01',
+                today: '2026-11-05',
+            });
+            assert.equal(c.months[0].days[2].level, level);
         });
     }
 });
@@ -347,6 +356,16 @@ test('intent_trends', () => {
         {month: '2026-11', need: a(0n, '$0.00'), want: a(200n, '$2.00'), impulse: a(300n, '$3.00')},
     ]);
     assert.equal(c.noIntent, 1);
+    assert.deepEqual(c.mix, [
+        {intent: 'need', total: a(1500n, '$15.00'), share: '75.00%', shareSize: 7500},
+        {intent: 'want', total: a(200n, '$2.00'), share: '10.00%', shareSize: 1000},
+        {intent: 'impulse', total: a(300n, '$3.00'), share: '15.00%', shareSize: 1500},
+    ]);
+    assert.deepEqual(
+        chart('intent_trends', []).mix.map((m) => m.share),
+        ['0.00%', '0.00%', '0.00%'],
+        'no intents, no shares',
+    );
 });
 
 test('intent_trends and the ledger follow the intent of each split part', () => {
@@ -408,10 +427,10 @@ test('small_purchases', () => {
     ]);
 });
 
-test('workday_routine', () => {
+test('hour_routine', () => {
     // 2026-11-02 is a Monday; 2026-11-07 is a Saturday.
     const c = chart(
-        'workday_routine',
+        'hour_routine',
         [
             txn('2026-11-02T09:15:00+05:30', -1000n, 'groceries', {merchant: 'Cafe'}),
             txn('2026-11-02T09:45:00+05:30', -3000n, 'transport', {merchant: 'Cafe'}),
@@ -425,15 +444,19 @@ test('workday_routine', () => {
         {from: '2026-11-02', to: '2026-11-08', today: '2026-11-08'},
     );
 
-    assert.deepEqual([c.workdays, c.hours.length], [5, 24]);
+    assert.deepEqual([c.days, c.hours.length], [7, 24]);
     const nine = c.hours[9];
-    assert.deepEqual([nine.occurrences, nine.total.text, nine.average.text, nine.share], [4, '$47.00', '$11.75', '40.00%']);
+    assert.deepEqual(
+        [nine.occurrences, nine.total.text, nine.average.text, nine.share],
+        [5, '$146.99', '$29.40', '42.86%'],
+        'weekends count like any other day',
+    );
     assert.deepEqual(
         nine.categories.map((x) => x.name),
-        ['transport', 'groceries', 'Uncategorized'],
+        ['groceries', 'transport', 'Uncategorized'],
     );
     assert.deepEqual(nine.merchants, [
-        {name: 'Cafe', count: 3, average: a(1500n, '$15.00')},
+        {name: 'Cafe', count: 4, average: a(3625n, '$36.25')},
         {name: 'Kiosk', count: 1, average: a(200n, '$2.00')},
     ]);
     assert.deepEqual([c.hours[23].occurrences, c.hours[23].total.text], [1, '$1.00']);
@@ -444,45 +467,25 @@ test('workday_routine', () => {
     );
 });
 
-test('workday_routine falls back to the note and honours the workdays setting', () => {
-    const c = chart(
-        'workday_routine',
-        [
-            change('setting', 'project', {workdays: ['sat']}),
-            txn('2026-11-07T10:00:00Z', -100n, '', {note: 'Weekend brunch'}),
-            txn('2026-11-02T10:00:00Z', -100n, '', {note: 'Standup donuts'}),
-        ],
-        {from: '2026-11-02', to: '2026-11-08', today: '2026-11-08'},
-    );
-    assert.deepEqual([c.workdays, c.hours[10].occurrences, c.hours[10].merchants[0].name], [1, 1, 'Weekend brunch']);
+test('hour_routine falls back to the note', () => {
+    const c = chart('hour_routine', [txn('2026-11-07T10:00:00Z', -100n, '', {note: 'Weekend brunch'})], {
+        from: '2026-11-02',
+        to: '2026-11-08',
+        today: '2026-11-08',
+    });
+    assert.deepEqual([c.hours[10].occurrences, c.hours[10].merchants[0].name], [1, 'Weekend brunch']);
 });
 
-test('the workday count stops at today', () => {
+test('the day count of hour_routine stops at today', () => {
     assert.equal(
-        chart('workday_routine', [txn('2026-11-02T10:00:00Z', -100n)], {from: '2026-11-01', to: '2026-11-30', today: '2026-11-04'})
-            .workdays,
-        3,
+        chart('hour_routine', [txn('2026-11-02T10:00:00Z', -100n)], {from: '2026-11-01', to: '2026-11-30', today: '2026-11-04'}).days,
+        4,
     );
 });
 
-test('weekday_hour_heatmap', () => {
-    const c = chart('weekday_hour_heatmap', [
-        txn('2026-11-02T09:15:00Z', -100n),
-        txn('2026-11-09T09:45:00Z', -300n),
-        txn('2026-11-08T22:00:00+05:30', -700n),
-        txn('2026-11-02T09:15:00Z', 5000n),
-        txn('2026-11-03', -999n),
-    ]);
-    assert.deepEqual(c.cells, [
-        {weekday: 0, hour: 9, spent: a(400n, '$4.00')},
-        {weekday: 6, hour: 22, spent: a(700n, '$7.00')},
-    ]);
-    assert.deepEqual([c.max.text, c.noTime.length], ['$7.00', 1]);
-});
-
-test('no_spend_calendar', () => {
+test('spending_calendar marks zero-expense days', () => {
     const c = chart(
-        'no_spend_calendar',
+        'spending_calendar',
         [
             txn('2026-10-30T10:00:00Z', -100n),
             txn('2026-11-02T10:00:00Z', -100n),
@@ -491,7 +494,7 @@ test('no_spend_calendar', () => {
         ],
         {from: '2026-11-01', today: '2026-11-09'},
     );
-    const november = c.noSpend[0];
+    const november = c.months[0];
     const status = Object.fromEntries(november.days.map((d) => [d.date, d.status]));
     const checks = {
         '2026-11-01': 'zero',
@@ -507,36 +510,41 @@ test('no_spend_calendar', () => {
     for (const [date, want] of Object.entries(checks)) {
         assert.equal(status[date], want, date);
     }
-    assert.deepEqual([c.noSpend.length, november.days.length, november.zeroDays, november.bestStreak, c.currentStreak], [1, 30, 7, 4, 2]);
+    assert.deepEqual([c.months.length, november.days.length, november.zeroDays, november.bestStreak, c.currentStreak], [1, 30, 7, 4, 2]);
+    assert.equal(november.lead, 6, 'November 2026 starts on a Sunday');
 });
 
-test('no_spend_calendar edges', async (t) => {
+test('spending_calendar edges', async (t) => {
     await t.test('days before the first transaction are not zero-expense days', () => {
-        const c = chart('no_spend_calendar', [txn('2026-11-05T10:00:00Z', -100n)], {today: '2026-11-06'});
-        assert.deepEqual([c.noSpend[0].days[0].status, c.noSpend[0].zeroDays], ['outside', 1]);
+        const c = chart('spending_calendar', [txn('2026-11-05T10:00:00Z', -100n)], {today: '2026-11-06'});
+        assert.deepEqual([c.months[0].days[0].status, c.months[0].zeroDays], ['outside', 1]);
     });
     await t.test('spending today ends the streak', () => {
         assert.equal(
-            chart('no_spend_calendar', [txn('2026-11-01T10:00:00Z', 100n), txn('2026-11-06T10:00:00Z', -100n)], {today: '2026-11-06'})
+            chart('spending_calendar', [txn('2026-11-01T10:00:00Z', 100n), txn('2026-11-06T10:00:00Z', -100n)], {today: '2026-11-06'})
                 .currentStreak,
             0,
         );
     });
     await t.test('range spanning three months', () => {
-        const c = chart('no_spend_calendar', [txn('2026-10-20T10:00:00Z', -100n)], {
+        const c = chart('spending_calendar', [txn('2026-10-20T10:00:00Z', -100n)], {
             from: '2026-10-25',
             to: '2026-12-05',
             today: '2026-12-31',
         });
         assert.deepEqual(
-            c.noSpend.map((m) => m.month),
-            ['2026-10', '2026-11', '2026-12'],
+            c.months.map((m) => [m.month, m.lead]),
+            [
+                ['2026-10', 3],
+                ['2026-11', 6],
+                ['2026-12', 1],
+            ],
         );
-        assert.deepEqual([c.noSpend[0].days[23].status, c.noSpend[0].zeroDays], ['outside', 7]);
+        assert.deepEqual([c.months[0].days[23].status, c.months[0].zeroDays], ['outside', 7]);
     });
 });
 
-test('category_compare and top_merchants', () => {
+test('by_category compares with the previous period, and top_merchants', () => {
     const changes = [
         txn('2026-10-10', -1000n, 'groceries', {merchant: 'Market'}),
         txn('2026-10-12', -500n, 'transport'),
@@ -544,17 +552,19 @@ test('category_compare and top_merchants', () => {
         txn('2026-11-11', -300n, 'groceries', {merchant: 'Bakery'}),
         txn('2026-11-12', -200n, '', {note: 'parking'}),
     ];
-    const c = chart('category_compare', changes, {from: '2026-11-01', to: '2026-11-30', today: '2026-11-30'});
+    const c = chart('by_category', changes, {from: '2026-11-01', to: '2026-11-30', today: '2026-11-30'});
     assert.deepEqual([c.previousFrom, c.previousTo], ['2026-10-02', '2026-10-31']);
     assert.deepEqual(
-        c.compare.map((r) => [r.name, r.current.text, r.previous.text, r.change]),
+        c.categories.map((r) => [r.name, r.spent.text, r.previous.text, r.change, r.barSize]),
         [
-            ['groceries', '$18.00', '$10.00', '+80.00%'],
-            ['Uncategorized', '$2.00', '$0.00', 'New'],
-            ['transport', '$0.00', '$5.00', '-100.00%'],
+            ['groceries', '$18.00', '$10.00', '+80.00%', 10000],
+            ['Uncategorized', '$2.00', '$0.00', 'New', 1111],
+            ['transport', '$0.00', '$5.00', '-100.00%', 0],
         ],
+        'a category spent on only before still shows, with no bar',
     );
-    assert.equal(chart('category_compare', changes, {today: '2026-11-30'}).compare[0].change, '', 'no comparison for all time');
+    const allTime = chart('by_category', changes, {today: '2026-11-30'});
+    assert.deepEqual([allTime.categories[0].change, allTime.previousFrom], ['', ''], 'no comparison for all time');
     const top = chart('top_merchants', changes, {from: '2026-11-01'}).merchants;
     assert.deepEqual(
         top.map((m) => [m.name, m.count, m.spent.text]),

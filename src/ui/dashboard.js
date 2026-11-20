@@ -15,10 +15,9 @@ const PRESETS = [
 
 // Charts are grouped by the question they answer; a chart not listed here goes in the last group.
 const GROUPS = [
-    ['Cash flow', ['monthly_totals', 'running_balance']],
-    ['Where it goes', ['by_category', 'category_compare', 'top_merchants']],
-    ['Habits', ['intent_trends', 'small_purchases', 'workday_routine', 'weekday_hour_heatmap']],
-    ['Calendar', ['calendar_heatmap', 'no_spend_calendar']],
+    ['Cash flow', ['running_balance', 'monthly_totals']],
+    ['Where it goes', ['by_category', 'top_merchants']],
+    ['Habits', ['spending_calendar', 'hour_routine', 'intent_trends', 'small_purchases']],
 ];
 
 const range = {from: '', to: '', preset: 'this_month', account: ''};
@@ -116,9 +115,14 @@ export async function render(container, ctx) {
         ctx.boot.budgets.rows.length > 0 ? el('article', {className: 'card'}, budgetSummary(ctx.boot.budgets)) : null,
         chartsSection,
     );
+    const shown = charts.visibleCharts(data.charts);
+    if (shown.every(charts.isEmpty)) {
+        chartsSection.append(el('p', {className: 'card muted'}, 'Charts appear here once this range has entries.'));
+        return;
+    }
     const groupOf = (type) => GROUPS.findIndex(([, types]) => types.includes(type));
     for (const [index, [title]] of GROUPS.entries()) {
-        const inGroup = data.charts.filter((c) => (groupOf(c.type) === -1 ? GROUPS.length - 1 : groupOf(c.type)) === index);
+        const inGroup = shown.filter((c) => (groupOf(c.type) === -1 ? GROUPS.length - 1 : groupOf(c.type)) === index);
         if (inGroup.length > 0) {
             const grid = el('div', {className: 'charts'});
             chartsSection.append(el('section', {className: 'chart-group'}, el('h2', {className: 'group-title'}, title), grid));

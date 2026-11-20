@@ -1,16 +1,7 @@
-import {noSpendCalendar, noTimeRefs, weekdayHours, workdayRoutine} from './habits.js';
+import {hourRoutine, noTimeRefs, spendingCalendar} from './habits.js';
 import {filterAccount} from './lines.js';
 import {filterRange, previousPeriod} from './scope.js';
-import {
-    byCategory,
-    categoryCompare,
-    dailySpending,
-    intentTrends,
-    monthlyTotals,
-    runningBalance,
-    smallPurchases,
-    topMerchants,
-} from './totals.js';
+import {byCategory, intentTrends, monthlyTotals, runningBalance, smallPurchases, topMerchants} from './totals.js';
 
 export {accountName, categoryName, UNCATEGORIZED} from './amount.js';
 export {budgetStatus} from './budgets.js';
@@ -20,17 +11,14 @@ export {summarize} from './summary.js';
 
 /** The dashboard's charts, in order. */
 export const CHARTS = [
+    {title: 'Running balance', type: 'running_balance'},
     {title: 'Monthly totals', type: 'monthly_totals'},
     {title: 'Spending by category', type: 'by_category'},
-    {title: 'Compared with the previous period', type: 'category_compare'},
     {title: 'Top merchants', type: 'top_merchants'},
-    {title: 'Daily spending', type: 'calendar_heatmap'},
-    {title: 'Running balance', type: 'running_balance'},
+    {title: 'Spending calendar', type: 'spending_calendar'},
+    {title: 'Time of day', type: 'hour_routine'},
     {title: 'Spending by intent', type: 'intent_trends'},
     {title: 'Small purchases', type: 'small_purchases'},
-    {title: 'Workday routine', type: 'workday_routine'},
-    {title: 'Weekday and hour', type: 'weekday_hour_heatmap'},
-    {title: 'No-spend days', type: 'no_spend_calendar'},
 ];
 
 /**
@@ -48,25 +36,19 @@ export function run(def, book, scope) {
         case 'monthly_totals':
             return {...chart, months: monthlyTotals(inRange, project)};
         case 'by_category':
-            return {...chart, categories: byCategory(inRange, project)};
-        case 'category_compare':
-            return {...chart, ...categoryCompare(all, project, scope, previousPeriod(scope, all))};
+            return {...chart, ...byCategory(all, project, scope, previousPeriod(scope, all))};
         case 'top_merchants':
             return {...chart, merchants: topMerchants(inRange, project)};
-        case 'calendar_heatmap':
-            return {...chart, ...dailySpending(inRange, project)};
+        case 'spending_calendar':
+            return {...chart, ...spendingCalendar(all, project, scope)};
         case 'running_balance':
             return {...chart, balance: runningBalance(book.txns, book.transfers, project, scope)};
         case 'intent_trends':
             return {...chart, ...intentTrends(inRange, project)};
         case 'small_purchases':
             return {...chart, ...smallPurchases(inRange, project)};
-        case 'workday_routine':
-            return {...chart, ...workdayRoutine(inRange, all, project, scope), noTime: noTimeRefs(inRange, project)};
-        case 'weekday_hour_heatmap':
-            return {...chart, ...weekdayHours(inRange, project), noTime: noTimeRefs(inRange, project)};
-        case 'no_spend_calendar':
-            return {...chart, ...noSpendCalendar(all, scope)};
+        case 'hour_routine':
+            return {...chart, ...hourRoutine(inRange, all, project, scope), noTime: noTimeRefs(inRange, project)};
     }
     return {...chart, error: `unknown chart type "${def.type}"`};
 }
