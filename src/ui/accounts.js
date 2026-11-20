@@ -1,8 +1,13 @@
-import {confirmDialog, el, field, fill, formDialog, pageHeader} from './dom.js';
+import {confirmDialog, el, field, fill, formDialog, infoTip, pageHeader} from './dom.js';
 import {openEntryForm} from './entry-form.js';
 import {icon} from './icons.js';
 
 const initialOf = (name) => [...name.trim()][0]?.toUpperCase() ?? '?';
+
+function listCard(title, hint, ...children) {
+    const tip = infoTip(hint, `About ${title}`);
+    return el('article', {className: 'card'}, el('div', {className: 'card-head'}, el('h2', {}, title), tip.button), tip.hint, children);
+}
 
 export async function render(container, ctx) {
     const act = async (change) => {
@@ -38,7 +43,7 @@ export async function render(container, ctx) {
                 {className: 'row', onclick: () => (a.listed ? openAccount(ctx, a) : ctx.openLedger({account: a.id}))},
                 el('span', {className: 'avatar', 'aria-hidden': 'true'}, a.kind === 'person' ? initialOf(a.name) : icon('accounts')),
                 el('span', {className: 'what'}, el('strong', {}, a.name), detail(a) ? el('small', {className: 'muted'}, detail(a)) : null),
-                el('span'),
+                el('span', {className: 'badges'}),
                 el('span', {className: `amount ${a.balance.negative ? 'expense' : ''}`}, a.balance.text),
             ),
         );
@@ -51,25 +56,21 @@ export async function render(container, ctx) {
             el('button', {onclick: () => openAccount(ctx, null, 'person')}, icon('plus'), 'Person'),
             el('button', {className: 'primary', onclick: () => openAccount(ctx, null, 'own')}, icon('plus'), 'Account'),
         ),
-        el(
-            'article',
-            {className: 'card'},
-            el('h2', {}, 'Your accounts'),
-            el('p', {className: 'muted'}, 'Bank accounts, cash, cards. A debt, such as a credit card, has a negative balance.'),
+        listCard(
+            'Your accounts',
+            'Bank accounts, cash, cards. A debt, such as a credit card, has a negative balance.',
             own.length === 0
                 ? el('p', {className: 'muted'}, 'No accounts yet. Add one here or while adding an entry.')
                 : el('ul', {className: 'card rows'}, own.map(row)),
         ),
-        el(
-            'article',
-            {className: 'card'},
-            el('h2', {}, 'People'),
-            el('p', {className: 'muted'}, 'Friends you split with or who pay for you. A positive balance means they owe you.'),
+        listCard(
+            'People',
+            'Friends you split with or who pay for you. A positive balance means they owe you.',
             people.length === 0
                 ? el(
                       'p',
                       {className: 'muted'},
-                      'No one yet. Use "Split with a person" when adding an expense, or pick a person as the account when they paid for you.',
+                      'No one yet. Use "Share with a person" when adding an expense, or pick a person as the account when they paid for you.',
                   )
                 : el('ul', {className: 'card rows'}, people.map(row)),
         ),

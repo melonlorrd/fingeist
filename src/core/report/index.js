@@ -1,3 +1,4 @@
+import {moneyAxis} from './amount.js';
 import {hourRoutine, noTimeRefs, spendingCalendar} from './habits.js';
 import {filterAccount} from './lines.js';
 import {filterRange, previousPeriod} from './scope.js';
@@ -41,8 +42,17 @@ export function run(def, book, scope) {
             return {...chart, merchants: topMerchants(inRange, project)};
         case 'spending_calendar':
             return {...chart, ...spendingCalendar(all, project, scope)};
-        case 'running_balance':
-            return {...chart, balance: runningBalance(book.txns, book.transfers, project, scope)};
+        case 'running_balance': {
+            const balance = runningBalance(book.txns, book.transfers, project, scope);
+            return {
+                ...chart,
+                balance,
+                axis: moneyAxis(
+                    balance.map((p) => p.balance.minor),
+                    project,
+                ),
+            };
+        }
         case 'intent_trends':
             return {...chart, ...intentTrends(inRange, project)};
         case 'small_purchases':

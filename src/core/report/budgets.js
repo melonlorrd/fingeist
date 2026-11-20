@@ -3,6 +3,9 @@ import {cycleEnd, cycleOf, cycleStart, daysBetween} from '../time.js';
 import {amountOf, byText, categoryColor, categoryName} from './amount.js';
 import {spendingLines} from './lines.js';
 
+/** A budget this used up, or more, is close to its limit. */
+const NEAR_PERCENT = 85n;
+
 /**
  * Each budget against this month's spending in its category, across all accounts. Months start on
  * the project's month start day.
@@ -35,6 +38,7 @@ export function budgetStatus(book, today) {
                 share: formatBasisPoints(bp),
                 shareSize: Number(bp > 10000n ? 10000n : bp < 0n ? 0n : bp),
                 over: used > b.amount,
+                near: used <= b.amount && used * 100n >= b.amount * NEAR_PERCENT,
             };
         })
         .sort((a, b) => Number(b.over) - Number(a.over) || byText(a.name, b.name));

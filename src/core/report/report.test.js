@@ -4,6 +4,7 @@ import {test} from 'node:test';
 import {formatMoney} from '../money.js';
 import {buildBook} from '../records.js';
 import {applyChange} from '../state.js';
+import {amountOf, moneyAxis, signedAmountOf} from './amount.js';
 import {
     accountBalances,
     budgetStatus,
@@ -20,7 +21,10 @@ import {
 import {filterAccount} from './lines.js';
 import {filterRange} from './scope.js';
 
-const a = (minor, text) => ({minor, text, size: Number(minor), negative: minor < 0n});
+const a = (minor, text) => {
+    const point = text.indexOf('.');
+    return {minor, size: Number(minor), negative: minor < 0n, text, whole: text.slice(0, point), fraction: text.slice(point)};
+};
 let tick = 0;
 let seq = 0;
 const change = (kind, id, fields) => ({kind, id, op: 'put', clock: `${1000000000000 + tick++}-0000`, device: 'A', fields});
@@ -80,34 +84,34 @@ test('monthly_totals', async (t) => {
         [
             'net can be negative',
             [txn('2026-11-01T10:00:00Z', -1000n)],
-            [{month: '2026-11', income: a(0n, '$0.00'), expenses: a(1000n, '$10.00'), net: a(-1000n, '-$10.00')}],
+            [{month: '2026-11', income: a(0n, '$0.00'), expenses: a(1000n, '$10.00'), net: a(-1000n, '−$10.00')}],
         ],
         [
             "month boundary uses the row's own offset",
             [txn('2026-10-31T23:30:00-05:00', -100n), txn('2026-11-01T00:30:00+05:30', -200n)],
             [
-                {month: '2026-10', income: a(0n, '$0.00'), expenses: a(100n, '$1.00'), net: a(-100n, '-$1.00')},
-                {month: '2026-11', income: a(0n, '$0.00'), expenses: a(200n, '$2.00'), net: a(-200n, '-$2.00')},
+                {month: '2026-10', income: a(0n, '$0.00'), expenses: a(100n, '$1.00'), net: a(-100n, '−$1.00')},
+                {month: '2026-11', income: a(0n, '$0.00'), expenses: a(200n, '$2.00'), net: a(-200n, '−$2.00')},
             ],
         ],
         [
             'gaps are filled and years roll over',
             [txn('2026-12-15T10:00:00Z', -100n), txn('2027-02-15T10:00:00Z', -300n)],
             [
-                {month: '2026-12', income: a(0n, '$0.00'), expenses: a(100n, '$1.00'), net: a(-100n, '-$1.00')},
+                {month: '2026-12', income: a(0n, '$0.00'), expenses: a(100n, '$1.00'), net: a(-100n, '−$1.00')},
                 {month: '2027-01', income: a(0n, '$0.00'), expenses: a(0n, '$0.00'), net: a(0n, '$0.00')},
-                {month: '2027-02', income: a(0n, '$0.00'), expenses: a(300n, '$3.00'), net: a(-300n, '-$3.00')},
+                {month: '2027-02', income: a(0n, '$0.00'), expenses: a(300n, '$3.00'), net: a(-300n, '−$3.00')},
             ],
         ],
         [
             'date-only rows count',
             [txn('2026-11-05', -700n)],
-            [{month: '2026-11', income: a(0n, '$0.00'), expenses: a(700n, '$7.00'), net: a(-700n, '-$7.00')}],
+            [{month: '2026-11', income: a(0n, '$0.00'), expenses: a(700n, '$7.00'), net: a(-700n, '−$7.00')}],
         ],
         [
             'refunds lower expenses and are not income',
             [txn('2026-11-05', -700n, 'groceries'), txn('2026-11-06', 200n, 'groceries', {refund: true})],
-            [{month: '2026-11', income: a(0n, '$0.00'), expenses: a(500n, '$5.00'), net: a(-500n, '-$5.00')}],
+            [{month: '2026-11', income: a(0n, '$0.00'), expenses: a(500n, '$5.00'), net: a(-500n, '−$5.00')}],
         ],
     ];
     for (const [name, changes, want] of cases) {
@@ -168,13 +172,13 @@ test('splits count only your share as spending, per category', () => {
     assert.equal(summarize(b.txns, b.project, scope).cards[0].value.text, '$200.00');
     assert.deepEqual(
         run({type: 'running_balance'}, b, scope).balance.map((p) => p.balance.text),
-        ['-$600.00'],
+        ['−$600.00'],
         'the whole payment left your account',
     );
     assert.deepEqual(
         accountBalances(b.txns, b.transfers, b.project).map((x) => [x.name, x.kind, x.balance.text]),
         [
-            ['Cash', 'own', '-$600.00'],
+            ['Cash', 'own', '−$600.00'],
             ['Rahul', 'person', '$400.00'],
         ],
     );
@@ -191,13 +195,13 @@ test('something a friend paid for you is your spending, and you owe them', () =>
     assert.deepEqual(
         accountBalances(b.txns, b.transfers, b.project).map((x) => [x.name, x.balance.text]),
         [
-            ['Cash', '-$300.00'],
+            ['Cash', '−$300.00'],
             ['Rahul', '$0.00'],
         ],
     );
     assert.deepEqual(
         run({type: 'running_balance'}, b, scope).balance.map((p) => p.balance.text),
-        ['-$300.00'],
+        ['−$300.00'],
         'only own accounts count; the repayment left cash',
     );
 });
@@ -317,7 +321,7 @@ test('running_balance starts from the opening balances of the accounts in view; 
     const balance = (scope) => chart('running_balance', changes, scope).balance.map((p) => p.balance.text);
     assert.deepEqual(balance({today: '2026-11-03'}), ['$900.00', '$870.00', '$870.00']);
     assert.deepEqual(balance({today: '2026-11-03', account: 'bank'}), ['$1,100.00', '$1,100.00', '$1,050.00']);
-    assert.deepEqual(balance({from: '2026-11-02', to: '2026-11-02', account: 'card'}), ['-$230.00']);
+    assert.deepEqual(balance({from: '2026-11-02', to: '2026-11-02', account: 'card'}), ['−$230.00']);
     assert.deepEqual(balance({today: '2026-11-03', account: 'cash'}), ['$50.00'], 'the first move into view opens the range');
 });
 
@@ -463,7 +467,7 @@ test('hour_routine', () => {
     assert.deepEqual([c.hours[0].occurrences, c.hours[0].total.text, c.hours[0].average.text], [0, '$0.00', '$0.00']);
     assert.deepEqual(
         c.noTime.map((r) => [r.date, r.amount.text]),
-        [['2026-11-04', '-$4.00']],
+        [['2026-11-04', '−$4.00']],
     );
 });
 
@@ -559,7 +563,7 @@ test('by_category compares with the previous period, and top_merchants', () => {
         [
             ['groceries', '$18.00', '$10.00', '+80.00%', 10000],
             ['Uncategorized', '$2.00', '$0.00', 'New', 1111],
-            ['transport', '$0.00', '$5.00', '-100.00%', 0],
+            ['transport', '$0.00', '$5.00', '−100.00%', 0],
         ],
         'a category spent on only before still shows, with no bar',
     );
@@ -631,7 +635,7 @@ test('summarize comparisons', async (t) => {
             [txn('2026-10-31T10:00:00Z', -2000n), txn('2026-11-01T10:00:00Z', -500n)],
             {from: '2026-11-01', to: '2026-11-01', today: '2026-11-08'},
             '$5.00',
-            '-75.00% vs previous period',
+            '−75.00% vs previous period',
         ],
     ];
     for (const [name, changes, scope, value, changeText] of cases) {
@@ -710,7 +714,7 @@ test('ledgerView', async (t) => {
     const coffee = day.rows[1];
     assert.deepEqual(
         [coffee.category, coffee.categoryColors, coffee.intents, coffee.amount.text, coffee.account],
-        ['groceries', ['#111111'], ['want'], '-$4.50', 'Cash'],
+        ['groceries', ['#111111'], ['want'], '−$4.50', 'Cash'],
     );
     assert.equal(day.rows[0].category, 'Uncategorized');
     assert.deepEqual([data.days[1].rows[0].refund, data.days[1].total.text], [true, '+$2.00']);
@@ -738,7 +742,7 @@ test('ledgerView', async (t) => {
     }
     await t.test('totals follow the filter', () => {
         const groceries = ledgerView(b.txns, b.transfers, b.project, {category: 'groceries'});
-        assert.deepEqual([groceries.spent.text, groceries.income.text, groceries.net.text], ['$2.50', '$0.00', '-$2.50']);
+        assert.deepEqual([groceries.spent.text, groceries.income.text, groceries.net.text], ['$2.50', '$0.00', '−$2.50']);
     });
 });
 
@@ -759,13 +763,13 @@ test('ledgerView shows transfers and shares; transfers count in day totals only 
         txn('2026-11-05', -30000n, 'transport', {account: 'rahul', merchant: 'Movie'}),
     );
     const all = ledgerView(b.txns, b.transfers, b.project);
-    assert.equal(all.days[0].total.text, '-$1.00');
+    assert.equal(all.days[0].total.text, '−$1.00');
     const atm = all.days[0].rows[1];
     assert.deepEqual([atm.kind, atm.account, atm.amount.text, atm.signed], ['transfer', 'Bank → Cash', '$50.00', false]);
     const dinner = all.days[1].rows[0];
     assert.deepEqual(
         [dinner.category, dinner.split, dinner.people, all.days[1].total.text],
-        ['groceries', true, ['Rahul owes $400.00'], '-$200.00'],
+        ['groceries', true, ['Rahul owes $400.00'], '−$200.00'],
     );
     assert.equal(all.days[2].rows[0].account, 'Paid by Rahul');
 
@@ -802,6 +806,8 @@ test("budgetStatus compares this month's spending with each budget", () => {
         change('budget', 'groceries', {amount: '100.00'}),
         change('budget', 'transport', {amount: '50.00'}),
         change('budget', 'gone', {amount: '50.00'}),
+        change('budget', 'salary', {amount: '100.00'}),
+        txn('2026-11-06', -8499n, 'salary'),
         txn('2026-11-02', -8000n, 'groceries'),
         txn('2026-11-03', -1000n, 'groceries', {account: 'card'}),
         txn('2026-11-04', 500n, 'groceries', {refund: true}),
@@ -811,13 +817,14 @@ test("budgetStatus compares this month's spending with each budget", () => {
     const status = budgetStatus(b, '2026-11-15');
     assert.deepEqual([status.month, status.from, status.to, status.daysLeft], ['2026-11', '2026-11-01', '2026-11-30', 16]);
     assert.deepEqual(
-        status.rows.map((r) => [r.name, r.spent.text, r.left.text, r.share, r.over, r.shareSize]),
+        status.rows.map((r) => [r.name, r.spent.text, r.left.text, r.share, r.over, r.near, r.shareSize]),
         [
-            ['transport', '$60.00', '-$10.00', '120.00%', true, 10000],
-            ['groceries', '$85.00', '$15.00', '85.00%', false, 8500],
+            ['transport', '$60.00', '−$10.00', '120.00%', true, false, 10000],
+            ['groceries', '$85.00', '$15.00', '85.00%', false, true, 8500],
+            ['salary', '$84.99', '$15.01', '84.99%', false, false, 8499],
         ],
     );
-    assert.deepEqual([status.total.budget.text, status.total.spent.text], ['$150.00', '$145.00']);
+    assert.deepEqual([status.total.budget.text, status.total.spent.text], ['$250.00', '$229.99']);
 });
 
 test('presetRange', () => {
@@ -851,4 +858,53 @@ test('runAll matches running each chart', () => {
         assert.deepEqual(c, run(defs[i], b, scope));
     }
     assert.equal(filterAccount(makeScope({account: 'cash'}), b.txns).length, 3);
+});
+
+test('amounts for the screen split into whole and minor units, signs included', () => {
+    const inr = {currency: 'INR', decimals: 2};
+    const jpy = {currency: 'JPY', decimals: 0};
+    const cases = [
+        ['negative', amountOf(-2430250n, inr), ['−₹24,302.50', '−₹24,302', '.50']],
+        ['zero', amountOf(0n, inr), ['₹0.00', '₹0', '.00']],
+        ['signed positive', signedAmountOf(100n, inr), ['+₹1.00', '+₹1', '.00']],
+        ['signed negative', signedAmountOf(-100n, inr), ['−₹1.00', '−₹1', '.00']],
+        ['no minor units', amountOf(-1500n, jpy), ['−¥1,500', '−¥1,500', '']],
+    ];
+    for (const [name, amount, want] of cases) {
+        assert.deepEqual([amount.text, amount.whole, amount.fraction], want, name);
+    }
+});
+
+test('moneyAxis spans the values in about three round steps, with a label for each tick', () => {
+    const usd = {currency: 'USD', decimals: 2};
+    const jpy = {currency: 'JPY', decimals: 0};
+    const axis = (values, project = usd) => {
+        const a = moneyAxis(values, project);
+        return [a.min, a.max, a.interval, a.ticks.map((t) => t.text)];
+    };
+    const cases = [
+        ['falling balance', [10000n, 7000n, 8000n], [7000, 10000, 1000, ['$70', '$80', '$90', '$100']]],
+        [
+            'a large balance moving a little',
+            [16000000n, 15760900n],
+            [15700000, 16000000, 100000, ['$157,000', '$158,000', '$159,000', '$160,000']],
+        ],
+        ['flat gets one step of height', [5000n, 5000n], [5000, 5100, 100, ['$50', '$51']]],
+        ['below zero', [-23000n, -20000n], [-23000, -20000, 1000, ['−$230', '−$220', '−$210', '−$200']]],
+        ['crossing zero', [-1500n, 4000n], [-2000, 4000, 2000, ['−$20', '$0', '$20', '$40']]],
+        [
+            'no minor units',
+            [1500000n, 900000n],
+            [800000, 1600000, 200000, ['¥800,000', '¥1,000,000', '¥1,200,000', '¥1,400,000', '¥1,600,000']],
+        ],
+        ['no values', [], [0, 0, 0, []]],
+    ];
+    for (const [name, values, want] of cases) {
+        assert.deepEqual(axis(values, name === 'no minor units' ? jpy : usd), want, name);
+    }
+    assert.deepEqual(
+        chart('running_balance', [txn('2026-11-01T10:00:00Z', 10000n)], {today: '2026-11-02'}).axis.ticks.map((t) => t.text),
+        ['$100', '$101'],
+        'the running balance chart carries its axis',
+    );
 });

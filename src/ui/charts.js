@@ -4,7 +4,8 @@ import * as echarts from 'echarts/core';
 import {LegacyGridContainLabel} from 'echarts/features';
 import {CanvasRenderer} from 'echarts/renderers';
 
-import {el, infoTip, monthLabel, shortDayLabel, shortMonthLabel} from './dom.js';
+import {MINUS} from '../core/money.js';
+import {dateText, el, figure, infoTip, monthLabel, shortDayLabel, shortMonthLabel} from './dom.js';
 import {openEntryList} from './entry-form.js';
 import {icon} from './icons.js';
 
@@ -121,10 +122,20 @@ function escapeHtml(text) {
     return String(text).replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[c]);
 }
 
-// ECharts animates on its own canvas, so the CSS reduced-motion rule doesn't reach it.
-function motion(animate) {
+// ECharts animates on its own canvas, so the CSS reduced-motion rule doesn't reach it. The delay matches the CSS
+// entrance (--stagger per card, capped at 8, then 160ms), so a chart grows once its card has landed.
+function motion(animate, index) {
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    return reduced || !animate ? {animation: false} : {animationDuration: 600, animationEasing: 'cubicOut', animationDurationUpdate: 250};
+    if (reduced || !animate) {
+        return {animation: false};
+    }
+    return {
+        animationDuration: 520,
+        animationEasing: 'quarticOut',
+        animationDelay: Math.min(index, 8) * 45 + 160,
+        animationDurationUpdate: 250,
+        animationEasingUpdate: 'quarticOut',
+    };
 }
 
 // The look every chart shares: the page's font, muted axes, and a tooltip shaped like the app's popovers.
@@ -161,6 +172,18 @@ function valueAxis(t) {
     return {type: 'value', axisLabel: {show: false}, splitLine: {lineStyle: {color: t.line, type: 'dashed'}}};
 }
 
+/** A value axis on the range, steps and labels core worked out, so the line fills the plot and its scale can be read. */
+function moneyAxis(t, axis) {
+    const labels = new Map(axis.ticks.map((tick) => [tick.size, tick.text]));
+    return {
+        ...valueAxis(t),
+        min: axis.min,
+        max: axis.max,
+        interval: axis.interval,
+        axisLabel: {color: t.muted, formatter: (value) => labels.get(value) ?? ''},
+    };
+}
+
 function bar(t) {
     return {type: 'bar', barMaxWidth: 28, itemStyle: {borderRadius: [t.mark, t.mark, 0, 0]}};
 }
@@ -173,6 +196,7 @@ function mount(parent, buildOption, data, height = DEFAULT_HEIGHT, onReady) {
 
     let instance = null;
     const animate = animateCharts;
+    const index = Number(parent.closest('.card')?.style.getPropertyValue('--i')) || 0;
     const observer = new ResizeObserver(() => {
         if (canvas.clientWidth === 0) {
             return;
@@ -182,7 +206,7 @@ function mount(parent, buildOption, data, height = DEFAULT_HEIGHT, onReady) {
             return;
         }
         instance = echarts.init(canvas);
-        instance.setOption({...buildOption(data, theme()), ...motion(animate)});
+        instance.setOption({...buildOption(data, {...theme(), width: canvas.clientWidth}), ...motion(animate, index)});
         instances.push(instance);
         onReady?.(instance);
     });
@@ -225,7 +249,7 @@ function monthlyTotalsOption(chart, t) {
 }
 
 function renderRunningBalance(body, chart) {
-    body.append(el('strong', {className: 'lead-figure'}, chart.balance.at(-1).balance.text));
+    body.append(el('strong', {className: 'lead-figure'}, figure(chart.balance.at(-1).balance)));
     mount(body, runningBalanceOption, chart, 240);
 }
 
@@ -234,7 +258,8 @@ function runningBalanceOption(chart, t) {
     return {
         ...b,
         color: [t.accent],
-        grid: {left: 0, right: 0, top: 12, bottom: 0, containLabel: true},
+        // ECharts measures some currency signs (₹) a little short, so the axis labels get a few pixels of room.
+        grid: {left: 6, right: 0, top: 12, bottom: 0, containLabel: true},
         tooltip: {
             ...b.tooltip,
             trigger: 'axis',
@@ -246,17 +271,27 @@ function runningBalanceOption(chart, t) {
             // The first and last labels sit at the plot's edges; aligning them inward keeps them from being cut off.
             {
                 boundaryGap: false,
-                axisLabel: {color: t.muted, formatter: shortDayLabel, alignMinLabel: 'left', alignMaxLabel: 'right', hideOverlap: true},
+                axisLabel: {
+                    color: t.muted,
+                    formatter: shortDayLabel,
+                    // About one date per 80px of chart, evenly spaced, so none has to be dropped for overlapping.
+                    interval: Math.ceil(chart.balance.length / Math.max(2, Math.floor(t.width / 80))) - 1,
+                    alignMinLabel: 'left',
+                    alignMaxLabel: 'right',
+                    hideOverlap: true,
+                },
             },
         ),
-        yAxis: valueAxis(t),
+        yAxis: moneyAxis(t, chart.axis),
         series: [
             {
                 type: 'line',
                 step: 'end',
                 showSymbol: false,
                 lineStyle: {width: 2},
+                // Filled down to the bottom of the axis, which no longer starts at zero.
                 areaStyle: {
+                    origin: 'start',
                     color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
                         {offset: 0, color: t.accent},
                         {offset: 1, color: t.surface},
@@ -273,12 +308,22 @@ function changeTone(change) {
     if (change.startsWith('+') || change === 'New') {
         return 'worse';
     }
-    return change.startsWith('-') ? 'better' : '';
+    return change.startsWith(MINUS) ? 'better' : '';
 }
 
 function renderByCategory(body, chart, ctx) {
     if (chart.previousFrom) {
-        body.append(el('p', {className: 'muted'}, `Changes compare with ${chart.previousFrom} to ${chart.previousTo}.`));
+        body.append(
+            el(
+                'p',
+                {className: 'muted'},
+                'Changes compare with ',
+                el('span', {className: 'nowrap'}, dateText(chart.previousFrom)),
+                ' to ',
+                el('span', {className: 'nowrap'}, dateText(chart.previousTo)),
+                '.',
+            ),
+        );
     }
     body.append(
         el(
@@ -338,7 +383,7 @@ function renderCalendar(body, chart, ctx) {
     calendarIndex = Math.min(calendarIndex ?? last, last);
 
     const heading = el('strong', {});
-    const stats = el('div', {className: 'tiles'});
+    const stats = el('div', {className: 'tiles three'});
     const grid = el('div', {className: 'cal'});
     const previous = el('button', {className: 'quiet', onclick: () => step(-1)}, icon('previous'), 'Earlier');
     const next = el('button', {className: 'quiet', onclick: () => step(1)}, 'Later', icon('next'));
@@ -349,8 +394,8 @@ function renderCalendar(body, chart, ctx) {
         previous.disabled = calendarIndex === 0;
         next.disabled = calendarIndex === last;
         stats.replaceChildren(
-            tile('Current streak', `${chart.currentStreak} days`),
-            tile('Best this month', `${month.bestStreak} days`),
+            tile('Current streak', dayCount(chart.currentStreak)),
+            tile('Best this month', dayCount(month.bestStreak)),
             tile('No-spend days', String(month.zeroDays)),
         );
         grid.replaceChildren(
@@ -380,14 +425,14 @@ function calendarCells(month, open) {
                 {
                     className: `cal-day l${d.level}`,
                     style: order,
-                    title: `${d.date}: ${d.spent.text}`,
-                    'aria-label': `${d.date}, ${d.spent.text}`,
+                    title: `${dateText(d.date)}: ${d.spent.text}`,
+                    'aria-label': `${dateText(d.date)}, ${d.spent.text}`,
                     onclick: () => open(d.date),
                 },
                 day,
             );
         }
-        const label = `${d.date}: ${DAY_STATUS[d.status] ?? ''}`;
+        const label = `${dateText(d.date)}: ${DAY_STATUS[d.status] ?? ''}`;
         return el('span', {className: `cal-day ${d.status}`, style: order, title: label, 'aria-label': label}, day);
     });
     return [...blanks, ...cells];
@@ -474,7 +519,7 @@ function intentNote(chart) {
 
 function renderSmallPurchases(body, chart) {
     smallIndex = Math.min(smallIndex, chart.small.length - 1);
-    const details = el('div', {className: 'tiles'});
+    const details = el('div', {className: 'tiles three'});
     const meter = el('div', {className: 'meter', 'aria-hidden': 'true'});
     const caption = el('small', {className: 'muted'});
     const picker = el('div', {className: 'pills scroll', role: 'group', 'aria-label': 'Threshold'});
@@ -503,6 +548,10 @@ function renderSmallPurchases(body, chart) {
     };
     show();
     body.append(picker, details, meter, caption);
+}
+
+function dayCount(n) {
+    return n === 1 ? '1 day' : `${n} days`;
 }
 
 function tile(label, value) {
@@ -569,7 +618,7 @@ function hourDetails(hour, days) {
         el('h4', {}, `At ${hourLabel(hour.hour)}`),
         el(
             'div',
-            {className: 'tiles'},
+            {className: 'tiles four'},
             tile('Occurrences', String(hour.occurrences)),
             tile(`Share of ${days} ${days === 1 ? 'day' : 'days'}`, hour.share),
             tile('Average', hour.average.text),

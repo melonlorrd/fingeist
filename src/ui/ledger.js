@@ -4,6 +4,9 @@ import {UNCATEGORIZED} from '../core/report/index.js';
 import {dateText, dayLabel, el, fill, monthLabel} from './dom.js';
 import {editEntry, openBulkCategory} from './entry-form.js';
 import {icon} from './icons.js';
+import {INTENTS} from './pickers.js';
+
+const INTENT_NAMES = Object.fromEntries(INTENTS);
 
 const DAYS_PER_PAGE = 40;
 const FILTERS = [
@@ -314,9 +317,9 @@ export async function render(container, ctx) {
             el(
                 'span',
                 {className: 'badges'},
-                row.intents.map((intent) => el('span', {className: `badge ${intent}`}, intent)),
-                row.refund ? el('span', {className: 'badge'}, 'refund') : null,
-                row.recurring ? el('span', {className: 'badge'}, 'repeats') : null,
+                row.intents.map((intent) => el('span', {className: `badge ${intent}`}, INTENT_NAMES[intent])),
+                row.refund ? el('span', {className: 'badge'}, 'Refund') : null,
+                row.recurring ? el('span', {className: 'badge'}, 'Repeats') : null,
             ),
             el(
                 'span',

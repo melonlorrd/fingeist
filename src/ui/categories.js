@@ -1,4 +1,5 @@
-import {confirmDialog, el, field, fill, formDialog, pageHeader} from './dom.js';
+import {MINUS} from '../core/money.js';
+import {confirmDialog, dateText, el, field, fill, formDialog, pageHeader} from './dom.js';
 import {icon} from './icons.js';
 
 export async function render(container, ctx) {
@@ -130,7 +131,7 @@ export function budgetSummary(b) {
             el(
                 'small',
                 {className: 'muted'},
-                `${b.from} to ${b.to} · ${b.daysLeft} days left · ${b.total.spent.text} of ${b.total.budget.text}`,
+                `${dateText(b.from)} to ${dateText(b.to)} · ${b.daysLeft === 1 ? '1 day' : `${b.daysLeft} days`} left · ${b.total.spent.text} of ${b.total.budget.text}`,
             ),
         ),
         el(
@@ -139,7 +140,7 @@ export function budgetSummary(b) {
             b.rows.map((r) =>
                 el(
                     'li',
-                    {className: r.over ? 'over' : ''},
+                    {className: r.over ? 'over' : r.near ? 'near' : ''},
                     el(
                         'div',
                         {className: 'budget-line'},
@@ -147,7 +148,7 @@ export function budgetSummary(b) {
                         el(
                             'small',
                             {className: 'muted'},
-                            `${r.spent.text} of ${r.budget.text} · ${r.over ? `${r.left.text.replace('-', '')} over` : `${r.left.text} left`}`,
+                            `${r.spent.text} of ${r.budget.text} · ${r.over ? `${r.left.text.replace(MINUS, '')} over` : `${r.left.text} left`}`,
                         ),
                     ),
                     el('div', {className: 'meter'}, el('span', {style: `width:${r.shareSize / 100}%`})),

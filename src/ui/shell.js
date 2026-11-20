@@ -1,7 +1,7 @@
 import * as accounts from './accounts.js';
 import * as categories from './categories.js';
 import * as dashboard from './dashboard.js';
-import {dialogElement, el, fill, placePillHighlights, rememberTap} from './dom.js';
+import {dialogElement, el, fill, placePillHighlights, rememberTap, slideIn, slideOut} from './dom.js';
 import {openEntryForm} from './entry-form.js';
 import {icon} from './icons.js';
 import * as ledger from './ledger.js';
@@ -259,17 +259,26 @@ export function startShell(app) {
         const restore = renderedTab === activeTab ? rememberPosition() : null;
         dashboard.disposeCharts();
         const container = el('div', {});
-        // A screen just opened animates in; a redraw of the same screen doesn't.
+        // A screen just opened animates in; a redraw of the same screen doesn't. Moving between tabs slides
+        // the pages sideways, in the direction of the tab, instead of the cards rising.
         ctx.fresh = renderedTab !== activeTab;
+        const direction = ctx.fresh && renderedTab ? Math.sign(tabIndex(activeTab) - tabIndex(renderedTab)) : 0;
         container.classList.toggle('enter', ctx.fresh);
+        container.classList.toggle('paged', direction !== 0);
         try {
             await views[activeTab].render(container, ctx);
         } catch (err) {
             showNotice(String(err?.message ?? err), true);
             return;
         }
+        if (direction !== 0 && token === renderToken) {
+            await slideOut([view.firstElementChild], direction);
+        }
         if (token === renderToken) {
             view.replaceChildren(container);
+            if (direction !== 0) {
+                slideIn([container], direction);
+            }
             renderedTab = activeTab;
             if (restore) {
                 restore();
@@ -277,6 +286,10 @@ export function startShell(app) {
                 window.scrollTo(0, 0);
             }
         }
+    }
+
+    function tabIndex(name) {
+        return Object.keys(views).indexOf(name);
     }
 
     function rememberPosition() {

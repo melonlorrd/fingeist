@@ -1,6 +1,6 @@
 import {budgetSummary} from './categories.js';
 import * as charts from './charts.js';
-import {datePicker, el, fill, pageHeader} from './dom.js';
+import {datePicker, el, figure, fill, pageHeader, slideIn, slideOut} from './dom.js';
 import {icon} from './icons.js';
 
 const PRESETS = [
@@ -23,6 +23,13 @@ const GROUPS = [
 const range = {from: '', to: '', preset: 'this_month', account: ''};
 let rangeSet = false;
 let lastRange = '';
+// A preset picked to the right of the current one slides the figures left, and the other way round.
+let slide = 0;
+
+/** Everything under the page header: the figures that change with the range. */
+function content(container) {
+    return [...container.children].filter((child) => !child.classList.contains('page-head'));
+}
 
 export function disposeCharts() {
     charts.disposeCharts();
@@ -57,8 +64,11 @@ export async function render(container, ctx) {
                 {
                     className: range.preset === name ? 'active' : '',
                     'aria-pressed': String(range.preset === name),
-                    onclick: () => {
+                    onclick: async () => {
+                        const index = (preset) => PRESETS.findIndex(([n]) => n === preset);
+                        slide = Math.sign(index(name) - index(range.preset));
                         Object.assign(range, name ? ctx.app.presetRange(name) : {}, {preset: name});
+                        await slideOut(content(container), slide);
                         ctx.rerender();
                     },
                 },
@@ -84,6 +94,10 @@ export async function render(container, ctx) {
     const animate = ctx.fresh || JSON.stringify(range) !== lastRange;
     lastRange = JSON.stringify(range);
     container.classList.toggle('enter', animate);
+    const direction = slide;
+    slide = 0;
+    // Figures reached by a sideways step slide in as a whole, so their cards don't also rise.
+    container.classList.toggle('paged', direction !== 0 || container.classList.contains('paged'));
 
     const cards = el(
         'section',
@@ -93,7 +107,7 @@ export async function render(container, ctx) {
                 'article',
                 {className: 'card summary-card', style: `--i:${index}`},
                 el('small', {className: 'label'}, card.label),
-                el('strong', {className: 'big'}, card.value.text),
+                el('strong', {className: 'big'}, figure(card.value)),
                 card.detail ? el('small', {className: 'muted'}, card.detail) : null,
                 el('small', {className: `change ${card.trend}`}, card.direction ? icon(card.direction) : null, el('span', {}, card.change)),
             ),
@@ -120,6 +134,7 @@ export async function render(container, ctx) {
         ctx.boot.budgets.rows.length > 0 ? el('article', {className: 'card', style: '--i:4'}, budgetSummary(ctx.boot.budgets)) : null,
         chartsSection,
     );
+    slideIn(content(container), direction);
     const shown = charts.visibleCharts(data.charts);
     if (shown.every(charts.isEmpty)) {
         chartsSection.append(el('p', {className: 'card muted'}, 'Charts appear here once this range has entries.'));

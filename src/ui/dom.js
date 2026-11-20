@@ -133,6 +133,11 @@ const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const pad = (n) => String(n).padStart(2, '0');
 const isoDate = (year, month, day) => `${year}-${pad(month + 1)}-${pad(day)}`;
 
+/** A large amount, with its minor units (".00") set smaller and muted so the whole number reads first. */
+export function figure(amount) {
+    return [amount.whole, amount.fraction ? el('span', {className: 'fraction'}, amount.fraction) : null];
+}
+
 /** "14 Nov 2026" for 2026-11-14. */
 export function dateText(iso) {
     const [year, month, day] = iso.split('-').map(Number);
@@ -281,6 +286,45 @@ export function openDialog(...content) {
     dialog.style.setProperty('--origin', recent ? `${lastTap.x - rect.left}px ${lastTap.y - rect.top}px` : 'center');
 }
 
+const SLIDE_PX = 32;
+
+function moving() {
+    return window.matchMedia?.('(prefers-reduced-motion: no-preference)').matches ?? false;
+}
+
+/** Content being replaced drifts toward the side it leaves by and fades; resolves when it is gone. */
+export async function slideOut(elements, direction) {
+    const shown = elements.filter((e) => e?.animate);
+    if (!moving() || direction === 0 || shown.length === 0) {
+        return;
+    }
+    const exits = shown.map((e) =>
+        e.animate([{opacity: 1}, {opacity: 0, transform: `translateX(${-direction * SLIDE_PX}px)`}], {
+            duration: 140,
+            easing: 'cubic-bezier(0.4, 0, 1, 1)',
+            fill: 'forwards',
+        }),
+    );
+    await Promise.all(exits.map((a) => a.finished.catch(() => {})));
+}
+
+/** New content comes in from the side it belongs to, on the same curve and duration (--t-enter) as every other entrance. */
+export function slideIn(elements, direction) {
+    if (!moving() || direction === 0) {
+        return;
+    }
+    const easing = getComputedStyle(document.documentElement).getPropertyValue('--ease-enter').trim() || 'ease-out';
+    for (const e of elements) {
+        e?.animate?.(
+            [
+                {opacity: 0, transform: `translateX(${direction * SLIDE_PX}px)`},
+                {opacity: 1, transform: 'none'},
+            ],
+            {duration: 520, easing},
+        );
+    }
+}
+
 /** Moves each pill group's sliding highlight under its active pill, in the active pill's colour. */
 export function placePillHighlights() {
     for (const group of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.pills'))) {
@@ -295,6 +339,10 @@ export function placePillHighlights() {
         group.style.setProperty('--pill-h', `${active.offsetHeight}px`);
         group.style.setProperty('--pill-tone', getComputedStyle(active).getPropertyValue('--tone').trim() || 'var(--tint)');
         if (!group.classList.contains('sliding')) {
+            // A freshly drawn row that scrolls sideways opens with its active pill in view, centred where it can be.
+            if (group.classList.contains('scroll')) {
+                group.scrollLeft = active.offsetLeft - (group.clientWidth - active.offsetWidth) / 2;
+            }
             group.classList.add('sliding');
             // Place it before turning the transition on, so a new group doesn't slide in from the corner.
             requestAnimationFrame(() => group.classList.add('ready'));

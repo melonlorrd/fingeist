@@ -9,18 +9,21 @@
     --on-accent: #ffffff;
     --tint: #e3ebf6;
     --danger: #b3261e;
+    /* Close to a limit: budgets at 85% or more. */
+    --warn: #c98a0b;
     --income: #1f7a50;
     --expense: #eb6834;
-    --need: #2a78d6;
-    --want: #b03f8f;
+    /* Intents: needs are the calm baseline, wants a distinct violet, impulses share the expense warning colour. */
+    --need: #5c6f8a;
+    --want: #7a52c7;
     --impulse: #eb6834;
     --heat-low: #cde2fb;
     --heat-high: #1c5cab;
     /* Solid fills for selected pills, deep enough that --on-tone text passes WCAG AA on them. */
     --tone-expense: #c4501f;
     --tone-income: #1f7a50;
-    --tone-need: #1f67c2;
-    --tone-want: #b03f8f;
+    --tone-need: #4d6080;
+    --tone-want: #6a43b8;
     --tone-impulse: #c4501f;
     --on-tone: #ffffff;
     /* The lit top edge of a raised surface. */
@@ -34,6 +37,15 @@
     --safe-left: env(safe-area-inset-left, 0px);
     --safe-right: env(safe-area-inset-right, 0px);
     --gutter: 24px;
+
+    /* Type: six sizes. xs for section headings, tab labels and badges; sm for labels, captions and hints;
+       md for body text; lg for card titles; xl for page titles and lead figures; 2xl for hero amounts. */
+    --fs-xs: 11px;
+    --fs-sm: 12px;
+    --fs-md: 14px;
+    --fs-lg: 16px;
+    --fs-xl: 22px;
+    --fs-2xl: 28px;
 
     /* Spacing: a 4px scale. */
     --s-1: 4px;
@@ -69,6 +81,10 @@
     --t-base: 200ms;
     --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
     --t-spring: 480ms;
+    /* Entrances: everything arriving on a screen shares one curve and one timeline (charts.js mirrors the stagger). */
+    --t-enter: 520ms;
+    --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+    --stagger: 45ms;
     /* A damped spring that overshoots by about 4% and settles. */
     --spring: linear(0, 0.09, 0.281, 0.494, 0.682, 0.828, 0.929, 0.992, 1.025, 1.037, 1.037, 1.032, 1.024, 1.016, 1.009, 1.004, 1.001, 1);
 
@@ -89,17 +105,18 @@
         --on-accent: #0b1a2c;
         --tint: #223247;
         --danger: #ff8a80;
+        --warn: #e3a93b;
         --income: #3fb57f;
         --expense: #d95926;
-        --need: #3987e5;
-        --want: #d77ccb;
+        --need: #8ea0bd;
+        --want: #a98ae8;
         --impulse: #d95926;
-        --heat-low: #203a5c;
+        --heat-low: #29476e;
         --heat-high: #6da7ec;
         --tone-expense: #d95926;
         --tone-income: #3fb57f;
-        --tone-need: #3987e5;
-        --tone-want: #d77ccb;
+        --tone-need: #8ea0bd;
+        --tone-want: #a98ae8;
         --tone-impulse: #d95926;
         --on-tone: #0b1a2c;
         --edge-light: rgba(255, 255, 255, 0.06);
@@ -129,7 +146,7 @@ body {
     color: var(--text);
     -webkit-tap-highlight-color: transparent;
     font:
-        14px / 1.45 -apple-system,
+        var(--fs-md) / 1.45 -apple-system,
         BlinkMacSystemFont,
         "SF Pro Text",
         system-ui,
@@ -165,27 +182,27 @@ p {
     margin: 0;
 }
 h1 {
-    font-size: 24px;
+    font-size: var(--fs-xl);
     font-weight: 700;
     letter-spacing: -0.025em;
 }
 h2 {
-    font-size: 15px;
+    font-size: var(--fs-lg);
     font-weight: 650;
     letter-spacing: -0.01em;
 }
 h3 {
-    font-size: 13px;
+    font-size: var(--fs-sm);
     font-weight: 600;
     color: var(--muted);
 }
 h4 {
-    font-size: 12px;
+    font-size: var(--fs-sm);
     margin: var(--s-3) 0 var(--s-1);
     color: var(--muted);
 }
 small {
-    font-size: 12px;
+    font-size: var(--fs-sm);
 }
 .muted {
     color: var(--muted);
@@ -225,7 +242,7 @@ small {
     min-width: 0;
 }
 .brand {
-    font-size: 16px;
+    font-size: var(--fs-lg);
     font-weight: 700;
     letter-spacing: -0.02em;
 }
@@ -467,11 +484,17 @@ nav.pills,
     align-items: center;
     justify-content: space-between;
 }
+/* The actions sit beside the title when there's room and wrap inside themselves, right-aligned, so extra controls
+   (such as a custom date range) add a line under them instead of pushing everything below the title. */
 .head-actions {
     display: flex;
     flex-wrap: wrap;
     gap: var(--s-2);
     align-items: center;
+}
+.page-head > .head-actions {
+    flex: 1 1 560px;
+    justify-content: flex-end;
 }
 /* Flex items default to never shrinking below their content; let them, so a scrolling row scrolls
    inside its card instead of widening the page. */
@@ -492,6 +515,11 @@ nav.pills,
 }
 .card > h2 {
     margin-bottom: var(--s-3);
+}
+/* A form card already spaces its children with its gap; a margin on top of that would double the space under the title. */
+.form > .card-head,
+.form > h2 {
+    margin-bottom: 0;
 }
 .notice {
     padding: var(--s-2) var(--s-4);
@@ -533,10 +561,16 @@ p.error {
     color: var(--danger);
 }
 
+/* Four cards: 4 across when they fit, otherwise 2 by 2, never 3 and 1. */
 .summary {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--s-3);
+}
+@media (min-width: 981px) {
+    .summary {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
 }
 .summary-card {
     container-type: inline-size;
@@ -544,11 +578,11 @@ p.error {
     flex-direction: column;
     gap: 2px;
 }
-.label {
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    font-size: 11px;
-    font-weight: 600;
+/* Labels have one style everywhere: sentence case, small and muted. Only section headings are uppercase. */
+.label,
+.stats dt {
+    font-size: var(--fs-sm);
+    font-weight: 500;
     color: var(--muted);
 }
 .summary-card .label {
@@ -559,15 +593,22 @@ p.error {
 }
 /* Sized to the card, so a long amount shrinks instead of breaking between digits. */
 .big {
-    font-size: clamp(18px, 10.5cqi, 30px);
+    /* Fluid between lg and 2xl, so a long amount on a narrow card shrinks instead of breaking. */
+    font-size: clamp(var(--fs-lg), 10.5cqi, var(--fs-2xl));
     line-height: 1.15;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.025em;
     overflow-wrap: anywhere;
 }
+/* Minor units in a large figure: smaller and muted, sized from the figure itself since .big is fluid. */
+.fraction {
+    font-size: 0.62em;
+    font-weight: 600;
+    color: var(--muted);
+}
 .lead-figure {
-    font-size: 22px;
+    font-size: var(--fs-xl);
     font-weight: 700;
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
@@ -603,7 +644,7 @@ p.error {
 }
 .group-title {
     padding: 0 var(--s-1);
-    font-size: 12px;
+    font-size: var(--fs-xs);
     font-weight: 650;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -618,6 +659,7 @@ p.error {
     display: flex;
     flex-direction: column;
     min-width: 0;
+    container-type: inline-size;
 }
 .chart {
     flex: 1;
@@ -626,17 +668,32 @@ p.error {
 .tiles {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-    gap: var(--s-2);
+    gap: var(--s-3);
     margin: var(--s-3) 0;
 }
+.nowrap {
+    white-space: nowrap;
+}
+/* Tile groups never leave one tile alone on a row: three sit in one row, four go 2 by 2 until the card fits 4. */
+.tiles.three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.tiles.four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@container (min-width: 520px) {
+    .tiles.four {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+/* A stat inside a card: a label over a value, set off by a thin rule instead of a box within the card. */
 .tile {
     display: flex;
     flex-direction: column;
     gap: 2px;
     font-variant-numeric: tabular-nums;
-    padding: 10px var(--s-3);
-    border-radius: var(--r-inner);
-    background: color-mix(in srgb, var(--text) 4%, transparent);
+    padding: 2px 0 2px var(--s-3);
+    border-left: 2px solid var(--line);
 }
 .month-nav {
     display: flex;
@@ -659,7 +716,8 @@ ul.plain {
 }
 
 /* A list row on a dashboard card: one button that opens the ledger, with a bar under its figures. */
-.stat-list {
+/* Pulled out by the rows' own padding, so row text lines up with the card title while the tap area stays wide. */
+ul.stat-list {
     margin: 0 calc(-1 * var(--s-2));
 }
 button.stat-row {
@@ -771,7 +829,7 @@ button.stat-row {
     border-radius: var(--r-mark);
     background: color-mix(in srgb, var(--text) 5%, transparent);
     color: var(--muted);
-    font-size: 12px;
+    font-size: var(--fs-sm);
     font-variant-numeric: tabular-nums;
 }
 .cal-day.zero {
@@ -809,7 +867,7 @@ button.stat-row {
     gap: 6px var(--s-2);
     margin-top: var(--s-3);
     color: var(--muted);
-    font-size: 12px;
+    font-size: var(--fs-sm);
 }
 .cal-legend .cal-day {
     width: 12px;
@@ -833,6 +891,11 @@ button.stat-row {
 .date-button {
     min-width: 120px;
     text-align: left;
+}
+/* In a form the date sits among text fields, so it takes their shape; in toolbars it stays a capsule like its neighbours. */
+.form .date-button {
+    border-radius: var(--r-inner);
+    padding: var(--s-1) var(--s-3);
 }
 .date-button.empty {
     color: var(--muted);
@@ -910,7 +973,7 @@ button.stat-row {
     border-radius: 999px;
     background: var(--accent);
     color: var(--on-accent);
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 700;
     line-height: 18px;
     text-align: center;
@@ -942,13 +1005,6 @@ button.filter-chip {
     margin: 0;
     flex: 1;
 }
-.stats dt {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--muted);
-}
 .stats dd {
     margin: 0;
     font-weight: 650;
@@ -966,8 +1022,16 @@ button.filter-chip {
     z-index: 2;
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
-    padding: 10px var(--s-4) 6px;
+    align-items: center;
+    padding: 6px var(--s-2) 4px;
+    pointer-events: none;
+}
+/* The date and the day's total are each a small capsule: almost the page's own colour in place, and frosted glass
+   over the rows when the header sticks under the top bar, so it stays readable without a box across the page.
+   (A full-width band hangs outside its section, which Safari composites wrongly over the page's colour field.) */
+.day > header > * {
+    padding: 3px 10px;
+    border-radius: 999px;
     background: var(--bg);
 }
 .day {
@@ -1086,23 +1150,29 @@ button.row:has(> .avatar) {
     margin-left: -4px;
     box-shadow: 0 0 0 1.5px var(--surface);
 }
+/* Row badges are quiet: muted text, with a small dot in the intent's colour, so every row isn't carrying an outline. */
 .badge {
-    font-size: 11.5px;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    padding: 0 9px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: var(--fs-xs);
+    color: var(--muted);
+}
+.badge:is(.need, .want, .impulse)::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--c);
 }
 .badge.need {
-    color: var(--need);
-    border-color: var(--need);
+    --c: var(--need);
 }
 .badge.want {
-    color: var(--want);
-    border-color: var(--want);
+    --c: var(--want);
 }
 .badge.impulse {
-    color: var(--impulse);
-    border-color: var(--impulse);
+    --c: var(--impulse);
 }
 
 /* Accounts and sync */
@@ -1111,7 +1181,9 @@ button.row:has(> .avatar) {
     align-items: center;
     gap: 6px;
     color: var(--muted);
-    font-size: 12px;
+    font-size: var(--fs-sm);
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 .sync-state .dot {
     margin: 0;
@@ -1183,7 +1255,7 @@ button.close {
 .field-head > span,
 .field-head > label {
     color: var(--muted);
-    font-size: 12px;
+    font-size: var(--fs-sm);
     font-weight: 500;
 }
 .field-head {
@@ -1219,7 +1291,7 @@ button.info .icon {
     border-radius: var(--r-inner);
     background: color-mix(in srgb, var(--text) 4%, transparent);
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: var(--fs-sm);
     line-height: 1.45;
 }
 .card-head + .hint {
@@ -1240,14 +1312,14 @@ button.info .icon {
 }
 .amount-input span {
     color: var(--muted);
-    font-size: 15px;
+    font-size: var(--fs-lg);
 }
 .amount-input input {
     flex: 1;
     border: 0;
     padding: 0;
     min-height: 0;
-    font-size: 26px;
+    font-size: var(--fs-2xl);
     font-weight: 650;
     letter-spacing: -0.02em;
     background: none;
@@ -1345,7 +1417,7 @@ dialog .form-actions {
 }
 .badges {
     display: inline-flex;
-    gap: var(--s-1);
+    gap: var(--s-1) var(--s-3);
     flex-wrap: wrap;
     justify-content: flex-end;
 }
@@ -1376,10 +1448,14 @@ dialog .form-actions {
     display: block;
     height: 100%;
     border-radius: 999px;
-    background: var(--income);
+    background: var(--accent);
+}
+/* A budget bar only takes a warning colour when it says something: close to the limit, or over it. */
+.budget-list li.near .meter span {
+    background: var(--warn);
 }
 .budget-list li.over .meter span {
-    background: var(--expense);
+    background: var(--danger);
 }
 
 @media (hover: hover) {
@@ -1455,9 +1531,6 @@ dialog .form-actions {
     main > div {
         gap: var(--s-3);
     }
-    h1 {
-        font-size: 21px;
-    }
     .toast {
         bottom: calc(var(--tab-h) + var(--safe-bottom) + var(--s-3));
     }
@@ -1487,7 +1560,7 @@ dialog .form-actions {
         gap: var(--s-2);
     }
     .summary-card .change {
-        font-size: 11.5px;
+        font-size: var(--fs-xs);
     }
     .chart-groups {
         gap: var(--s-6);
@@ -1495,6 +1568,10 @@ dialog .form-actions {
     .page-head {
         flex-direction: column;
         align-items: stretch;
+    }
+    .page-head > .head-actions {
+        flex: none;
+        justify-content: flex-start;
     }
     .filter-bar input[type="search"] {
         flex-basis: 100%;
@@ -1518,7 +1595,8 @@ dialog .form-actions {
         z-index: 10;
         display: flex;
         max-width: none;
-        padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
+        /* Side padding keeps the outer labels off the screen's rounded corners. */
+        padding: 0 max(var(--s-2), var(--safe-right)) var(--safe-bottom) max(var(--s-2), var(--safe-left));
         border: 0;
         border-top: 0.5px solid var(--hairline);
         border-radius: 0;
@@ -1537,7 +1615,7 @@ dialog .form-actions {
         padding: var(--s-2) 2px;
         border-radius: 0;
         background: none;
-        font-size: 11px;
+        font-size: var(--fs-xs);
     }
     nav.tabs button.active {
         color: var(--accent);
@@ -1585,6 +1663,12 @@ dialog .form-actions {
         grid-row: 2;
         justify-content: flex-start;
     }
+    .row .badges:empty {
+        display: none;
+    }
+    .row:has(> .badges:empty) > * {
+        grid-row: 1;
+    }
     .row .figure {
         grid-column: 3;
         grid-row: 1 / span 2;
@@ -1592,8 +1676,12 @@ dialog .form-actions {
     button.row:has(> .avatar) {
         grid-template-columns: 32px minmax(0, 1fr) auto;
     }
+    /* Four totals sit 2 by 2 on a phone rather than 3 and 1. */
     .stats {
-        gap: var(--s-1) 14px;
+        display: grid;
+        grid-template-columns: repeat(2, auto);
+        justify-content: start;
+        gap: var(--s-2) var(--s-5);
     }
 }
 
@@ -1602,9 +1690,7 @@ dialog .form-actions {
     :root {
         --h-sm: 36px;
         --h-md: 40px;
-    }
-    body {
-        font-size: 15px;
+        --fs-md: 15px;
     }
     input,
     select,
@@ -1630,9 +1716,6 @@ dialog .form-actions {
         height: 36px;
         margin: -7px;
     }
-    .amount-input input {
-        font-size: 28px;
-    }
 }
 
 @keyframes rise-in {
@@ -1649,7 +1732,7 @@ dialog .form-actions {
 @keyframes rise {
     from {
         opacity: 0;
-        transform: translateY(14px) scale(0.985);
+        transform: translateY(16px);
     }
 }
 @keyframes grow-x {
@@ -1660,7 +1743,7 @@ dialog .form-actions {
 @keyframes pop {
     from {
         opacity: 0;
-        transform: scale(0.6);
+        transform: scale(0.82);
     }
 }
 
@@ -1672,15 +1755,13 @@ dialog .form-actions {
         background: none;
     }
     .topbar::before,
-    .day > header {
+    .day > header > * {
         background: var(--glass-bar);
         -webkit-backdrop-filter: var(--glass-blur);
         backdrop-filter: var(--glass-blur);
     }
     dialog,
-    .date-popover,
-    .toast,
-    dialog .form-actions {
+    .toast {
         background: var(--glass-float);
         -webkit-backdrop-filter: var(--glass-blur);
         backdrop-filter: var(--glass-blur);
@@ -1705,7 +1786,7 @@ dialog .form-actions {
         -webkit-backdrop-filter: none;
         backdrop-filter: none;
     }
-    .day > header {
+    .day > header > * {
         background: var(--bg);
         -webkit-backdrop-filter: none;
         backdrop-filter: none;
@@ -1749,25 +1830,29 @@ dialog .form-actions {
         animation: rise-in var(--t-base) var(--ease);
     }
 
-    /* A screen that just opened (or a dashboard range that changed) arrives in order: cards rise one after another,
-       bars grow from their start, calendar days pop in. "backwards" leaves no transform behind afterwards. */
+    /* A screen that just opened (or a dashboard range that changed) arrives in order on one curve: cards rise one
+       after another, then the marks inside each card (bars, calendar days, charts) grow in once it has landed.
+       "backwards" leaves no transform behind afterwards. */
     .enter .card:not(.rows),
     .enter .group-title,
     .enter .day {
-        --enter-delay: min(calc(var(--i, 0) * 50ms), 450ms);
-        animation: rise var(--t-spring) var(--spring) backwards;
+        --enter-delay: calc(min(var(--i, 0), 8) * var(--stagger));
+    }
+    /* A page reached by switching tabs slides in as a whole (shell.js), so its cards don't also rise. */
+    .enter:not(.paged) :is(.card:not(.rows), .group-title, .day) {
+        animation: rise var(--t-enter) var(--ease-enter) backwards;
         animation-delay: var(--enter-delay);
     }
     .enter .bar > span,
     .enter .meter span,
     .enter .mix-bar > span {
         transform-origin: left;
-        animation: grow-x 700ms var(--ease) backwards;
-        animation-delay: calc(var(--enter-delay, 0ms) + 150ms + var(--row, 0) * 40ms);
+        animation: grow-x var(--t-enter) var(--ease-enter) backwards;
+        animation-delay: calc(var(--enter-delay, 0ms) + 160ms + min(var(--row, 0), 8) * 30ms);
     }
     .enter .cal .cal-day {
-        animation: pop var(--t-spring) var(--spring) backwards;
-        animation-delay: calc(var(--enter-delay, 0ms) + var(--d, 0) * 8ms);
+        animation: pop var(--t-enter) var(--ease-enter) backwards;
+        animation-delay: calc(var(--enter-delay, 0ms) + 160ms + var(--d, 0) * 6ms);
     }
     .pills.sliding.ready::before {
         transition:
@@ -1825,9 +1910,19 @@ dialog .form-actions {
     }
 
     @media (max-width: 700px) {
+        /* A sheet slides up and stops at its edge; a spring would lift it past the bottom of the screen. */
+        dialog,
+        dialog[open] {
+            transition:
+                transform var(--t-enter) var(--ease-enter),
+                overlay var(--t-enter) allow-discrete,
+                display var(--t-enter) allow-discrete;
+        }
         dialog {
             opacity: 1;
             transform: translateY(100%);
+            transition-duration: var(--t-base);
+            transition-timing-function: var(--ease);
         }
         @starting-style {
             dialog[open] {

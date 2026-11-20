@@ -34,7 +34,8 @@ const saved = {};
 let page;
 
 before(() => {
-    page = new Window({url: 'http://localhost/', width: 390, height: 844});
+    // The smoke test checks what renders, not motion, so it runs as if the OS asked for reduced motion.
+    page = new Window({url: 'http://localhost/', width: 390, height: 844, settings: {device: {prefersReducedMotion: 'reduce'}}});
     for (const name of GLOBALS) {
         saved[name] = Object.getOwnPropertyDescriptor(globalThis, name);
         Object.defineProperty(globalThis, name, {value: name === 'window' ? page : page[name], configurable: true, writable: true});
@@ -260,7 +261,7 @@ test('every screen and dialog with a full book', async () => {
     await closeDialog();
     const order = [...document.querySelectorAll('button.row')].find((b) => b.textContent?.includes('Instamart'));
     assert.ok(order, 'no row for the Instamart order');
-    assert.match(order.textContent ?? '', /need.*want/);
+    assert.match(order.textContent ?? '', /Need.*Want/);
     order.click();
     await settle();
     assert.equal(dialog().querySelectorAll('[aria-label="Part intent"]').length, 3);

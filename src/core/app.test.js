@@ -73,14 +73,14 @@ test('an expense creates its new account and category inline, and is signed from
     const boot = app.boot();
     assert.deepEqual(
         boot.accounts.map((a) => [a.name, a.kind, a.balance.text]),
-        [['Cash', 'own', '-₹120.50']],
+        [['Cash', 'own', '−₹120.50']],
     );
     assert.deepEqual(
         boot.categories.map((c) => c.name),
         ['Food'],
     );
     const row = app.ledger().days[0].rows[0];
-    assert.deepEqual([row.amount.text, row.time, row.intents, row.category, row.account], ['-₹120.50', '09:30', ['need'], 'Food', 'Cash']);
+    assert.deepEqual([row.amount.text, row.time, row.intents, row.category, row.account], ['−₹120.50', '09:30', ['need'], 'Food', 'Cash']);
     assert.equal(boot.lastAccount, ids(app).Cash);
     assert.deepEqual(app.getEntry(row.id), {
         id: row.id,
@@ -104,7 +104,7 @@ test('an expense creates its new account and category inline, and is signed from
 test('amounts accept grouping, a currency sign and sums', async () => {
     const {app} = await withProject();
     await app.saveEntry({...expense, amount: '₹ 1,200 + 45.50'});
-    assert.equal(app.ledger().days[0].rows[0].amount.text, '-₹1,245.50');
+    assert.equal(app.ledger().days[0].rows[0].amount.text, '−₹1,245.50');
 });
 
 test('income, refunds and a cleared time', async () => {
@@ -160,7 +160,7 @@ test('splits with a friend, the friend paying for you, and settling up', async (
     assert.deepEqual(
         boot.accounts.map((a) => [a.name, a.kind, a.balance.text, a.settle]),
         [
-            ['Cash', 'own', '-₹600.00', '600.00'],
+            ['Cash', 'own', '−₹600.00', '600.00'],
             ['Rahul', 'person', '₹100.00', '100.00'],
         ],
     );
@@ -177,7 +177,7 @@ test('splits with a friend, the friend paying for you, and settling up', async (
     boot = app.boot();
     assert.deepEqual(
         boot.accounts.map((a) => a.balance.text),
-        ['-₹500.00', '₹0.00'],
+        ['−₹500.00', '₹0.00'],
     );
     await assert.rejects(
         app.saveEntry({
@@ -209,7 +209,7 @@ test('an itemised bill: named items with their own intent, a fee and a discount,
     const [row] = app.ledger().days[0].rows;
     assert.deepEqual(
         [row.amount.text, row.intents, row.split, row.category],
-        ['-₹814.00', ['need', 'want'], true, 'Snacks, Essentials +1 · 4 items'],
+        ['−₹814.00', ['need', 'want'], true, 'Snacks, Essentials +1 · 4 items'],
     );
     assert.equal(row.categoryColors.length, 3);
     assert.deepEqual(
@@ -227,7 +227,7 @@ test('an itemised bill: named items with their own intent, a fee and a discount,
         [app.itemsTotal(['99', '720', '25+10', '-40']), app.itemsTotal(['99', '']), app.itemsTotal([])],
         ['814.00', '', '0.00'],
     );
-    assert.equal(app.boot().accounts[0].balance.text, '-₹814.00');
+    assert.equal(app.boot().accounts[0].balance.text, '−₹814.00');
     await assert.rejects(
         app.saveEntry({
             ...expense,
@@ -272,7 +272,7 @@ test('the form always sends items: one unnamed item is an ordinary entry, a name
     const [pay, shop, market] = ['Pay', 'Shop', 'Market'].map((name) => rows.find((r) => r.merchant === name));
     assert.deepEqual(
         [market.category, market.intents, market.amount.text, app.getEntry(market.id).splits, app.getEntry(market.id).intent],
-        ['Food', ['need'], '-₹125.00', [], 'need'],
+        ['Food', ['need'], '−₹125.00', [], 'need'],
     );
     assert.deepEqual([shop.category, shop.intents, app.getEntry(shop.id).splits.map((s) => s.note)], ['Home', ['need'], ['Nail clipper']]);
     assert.deepEqual([pay.amount.text, pay.intents, app.getEntry(pay.id).intent], ['+₹500.00', [], '']);
@@ -375,7 +375,7 @@ test('accounts: rename, merge, and delete only when unused', async () => {
     await app.mergeAccount(Wallet, Cash);
     assert.deepEqual(
         app.boot().accounts.map((a) => [a.name, a.balance.text]),
-        [['Pocket cash', '-₹191.00']],
+        [['Pocket cash', '−₹191.00']],
     );
     const unused = await app.createAccount({name: 'Unused'});
     await app.deleteAccount(unused);
@@ -493,6 +493,10 @@ test('export gives readable JSON and CSV', async () => {
     const csv = app.exportCsv().split('\n');
     assert.equal(csv[0], 'id,date,time,type,amount,account,to_account,category,item,merchant,note,tags,intent');
     assert.match(csv[1], /,2026-11-15,09:30,expense,-120.50,Cash,,Food,,Market,"with ""quotes"", and commas",weekly,need$/);
+    // The screen's true minus (U+2212) is display only: stored records and both exports keep a plain hyphen.
+    assert.equal(json.records.txn[0].amount, '-120.50');
+    assert.ok(!app.exportJson().includes('\u2212') && !app.exportCsv().includes('\u2212'), 'no display minus in exports');
+    assert.equal(app.ledger().days[0].rows[0].amount.text, '\u2212₹120.50');
 });
 
 test('local only: no sync until connected, and everything survives a restart', async () => {

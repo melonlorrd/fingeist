@@ -7,7 +7,9 @@ import {sameName} from './workspace.js';
 
 /** Picker values starting with this name a new account or category to create, e.g. "new:Cash". */
 export const NEW_PREFIX = 'new:';
-const PALETTE = ['#2a78d6', '#1baf7a', '#eb6834', '#eda100', '#8a5cd6', '#d64f8a', '#3aa6b9', '#7a8a3c'];
+// New categories cycle through hues that don't mean anything else in the app: no income green, expense orange,
+// warning amber, danger red or accent blue, so a category's colour is never read as good or bad.
+const PALETTE = ['#5866d1', '#2a9bb5', '#d1508a', '#9b6a43', '#7d8b3a', '#a24f9a'];
 
 /** @param {import('./workspace.js').Workspace} ws */
 function nextCategoryColor(ws) {

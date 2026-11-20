@@ -38,10 +38,13 @@ function currencyPrefix(currency) {
     return CURRENCY_SYMBOLS[currency] ?? `${currency} `;
 }
 
-/** Formats with the currency symbol and thousands grouping, e.g. "-₹1,234.50". */
+/** The sign for negative amounts and percentages on screen: a true minus (U+2212), as wide as + and never read as a hyphen. */
+export const MINUS = '\u2212';
+
+/** Formats for display, with the currency symbol, thousands grouping and a true minus, e.g. "−₹1,234.50". Never stored or parsed. */
 export function displayMoney(minor, currency, decimals) {
     const text = formatMoney(minor, decimals);
-    const sign = text.startsWith('-') ? '-' : '';
+    const sign = text.startsWith('-') ? MINUS : '';
     const [whole, fraction] = text.replace('-', '').split('.');
     return sign + currencyPrefix(currency) + groupThousands(whole) + (fraction === undefined ? '' : `.${fraction}`);
 }
@@ -81,11 +84,11 @@ export function basisPoints(num, den) {
     return quotient;
 }
 
-/** Renders hundredths of a percent as "12.34%", with a leading + when showPlus is set. */
+/** Renders hundredths of a percent for display as "12.34%", with a true minus, or a leading + when showPlus is set. */
 export function formatBasisPoints(bp, showPlus = false) {
     let sign = '';
     if (bp < 0n) {
-        sign = '-';
+        sign = MINUS;
         bp = -bp;
     } else if (showPlus && bp > 0n) {
         sign = '+';
