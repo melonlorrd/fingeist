@@ -47,10 +47,9 @@
     --card-px: 20px;
     --dialog-pad: 22px;
 
-    /* Control heights: compact (pills, quiet buttons), regular, and large (the floating Add). */
+    /* Control heights: compact (pills, quiet buttons) and regular. */
     --h-sm: 26px;
     --h-md: 32px;
-    --h-lg: 48px;
 
     /* Shape: compact controls are capsules; text fields and containers use these radii, rounder as they grow.
        --r-mark is for data marks: chart bars, calendar cells. */
@@ -200,6 +199,14 @@ small {
     background: var(--bg);
     border-bottom: 0.5px solid var(--hairline);
     padding: var(--safe-top) var(--safe-right) 0 var(--safe-left);
+}
+/* The glass lives on this layer, not on .topbar: a backdrop-filter makes an element the containing block of its
+   fixed children, which would pull the phone tab bar and the Add button up into the top bar. */
+.topbar::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
 }
 .topbar-inner {
     max-width: 1120px;
@@ -548,8 +555,7 @@ p.error {
     margin-bottom: var(--s-1);
 }
 .summary-card .change {
-    margin-top: auto;
-    padding-top: 6px;
+    margin-top: 6px;
 }
 /* Sized to the card, so a long amount shrinks instead of breaking between digits. */
 .big {
@@ -1439,12 +1445,11 @@ dialog .form-actions {
         --card-py: 14px;
         --card-px: 16px;
         --dialog-pad: 18px;
-        --tab-h: 58px;
-        --island-bottom: max(10px, calc(var(--safe-bottom) - 8px));
+        --tab-h: 60px;
     }
     .page {
         padding-top: var(--s-3);
-        padding-bottom: calc(var(--island-bottom) + var(--tab-h) + 88px);
+        padding-bottom: calc(var(--tab-h) + var(--safe-bottom) + var(--s-6));
         gap: var(--s-3);
     }
     main > div {
@@ -1454,7 +1459,7 @@ dialog .form-actions {
         font-size: 21px;
     }
     .toast {
-        bottom: calc(var(--island-bottom) + var(--tab-h) + 80px);
+        bottom: calc(var(--tab-h) + var(--safe-bottom) + var(--s-3));
     }
     /* Many categories scroll sideways in two rows instead of pushing the form down. */
     .chips {
@@ -1504,59 +1509,52 @@ dialog .form-actions {
         flex: 1 0 auto;
     }
 
+    /* A plain tab bar docked to the bottom edge; the selected tab is shown by its colour alone. */
     nav.tabs {
         position: fixed;
-        left: 50%;
-        bottom: var(--island-bottom);
+        left: 0;
+        right: 0;
+        bottom: 0;
         z-index: 10;
-        transform: translateX(-50%);
-        width: min(480px, calc(100% - 24px - var(--safe-left) - var(--safe-right)));
         display: flex;
-        /* Wider at the ends than the top, so the end labels and the highlight clear the capsule's curve. */
-        padding: var(--s-1) 10px;
-        border: 0.5px solid var(--hairline);
-        background: var(--surface);
-        box-shadow:
-            var(--shadow-raise),
-            inset 0 1px 0 var(--edge-light);
+        max-width: none;
+        padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
+        border: 0;
+        border-top: 0.5px solid var(--hairline);
+        border-radius: 0;
+        background: var(--bg);
     }
-    nav.tabs button {
+    nav.tabs::before {
+        display: none;
+    }
+    nav.tabs button,
+    nav.tabs button.active {
         flex: 1;
         flex-direction: column;
-        gap: 1px;
-        min-height: calc(var(--tab-h) - 10px);
-        padding: 0 2px;
-        font-size: 10.5px;
+        gap: 3px;
+        min-width: 0;
+        min-height: var(--tab-h);
+        padding: var(--s-2) 2px;
+        border-radius: 0;
+        background: none;
+        font-size: 11px;
+    }
+    nav.tabs button.active {
+        color: var(--accent);
     }
     nav.tabs .icon {
-        width: 20px;
-        height: 20px;
+        width: 22px;
+        height: 22px;
     }
-    .add-button {
-        position: fixed;
-        right: calc(14px + var(--safe-right));
-        bottom: calc(var(--island-bottom) + var(--tab-h) + 12px);
-        z-index: 11;
-        min-height: 52px;
-        min-width: 52px;
-        padding: 0 22px;
-        font-size: 16px;
-        box-shadow: var(--shadow-raise);
-    }
-    .add-button .icon {
-        width: 20px;
-        height: 20px;
-    }
-    .add-button.compact {
-        padding: 0;
-    }
-    .add-button.compact > span {
-        position: absolute;
-        width: 1px;
-        height: 1px;
+    /* The top bar holds the project name and Add; a long name gives way first. */
+    .brand {
         overflow: hidden;
-        clip-path: inset(50%);
         white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+    .topbar-inner {
+        flex-wrap: nowrap;
+        min-height: 52px;
     }
 
     dialog {
@@ -1670,7 +1668,10 @@ dialog .form-actions {
    prefers-reduced-transparency, so glass is the default and only "reduce" turns it off; asking for
    "no-preference" instead would leave Safari without glass. */
 @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-    .topbar,
+    .topbar {
+        background: none;
+    }
+    .topbar::before,
     .day > header {
         background: var(--glass-bar);
         -webkit-backdrop-filter: var(--glass-blur);
@@ -1689,15 +1690,27 @@ dialog .form-actions {
     }
     @media (max-width: 700px) {
         nav.tabs {
-            background: var(--glass-float);
+            background: var(--glass-bar);
             -webkit-backdrop-filter: var(--glass-blur);
             backdrop-filter: var(--glass-blur);
         }
     }
 }
 @media (prefers-reduced-transparency: reduce) {
-    .topbar,
+    .topbar {
+        background: var(--bg);
+    }
+    .topbar::before {
+        background: none;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+    }
     .day > header {
+        background: var(--bg);
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+    }
+    nav.tabs {
         background: var(--bg);
         -webkit-backdrop-filter: none;
         backdrop-filter: none;
@@ -1705,8 +1718,7 @@ dialog .form-actions {
     dialog,
     .date-popover,
     .toast,
-    dialog .form-actions,
-    nav.tabs {
+    dialog .form-actions {
         background: var(--surface);
         -webkit-backdrop-filter: none;
         backdrop-filter: none;

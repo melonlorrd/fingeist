@@ -57,8 +57,8 @@ export function startShell(app) {
 
     const title = el('span', {className: 'brand'}, 'Fingeist');
     const syncState = el('button', {className: 'quiet sync-state', onclick: () => showTab('settings')});
-    // The same nav and Add button on every screen size: CSS puts them in the top bar on wide screens,
-    // and the nav at the bottom with Add floating above it on phones.
+    // The same nav and Add button on every screen size: CSS puts the nav in the top bar on wide screens
+    // and in a tab bar docked to the bottom on phones; Add always stays in the top bar.
     const nav = el('nav', {className: 'pills tabs', 'aria-label': 'Sections'});
     const addButton = el(
         'button',
@@ -357,17 +357,6 @@ export function startShell(app) {
     new ResizeObserver(() => document.documentElement.style.setProperty('--topbar-h', `${topbar.offsetHeight}px`)).observe(topbar);
     trackKeyboard();
 
-    // On phones the floating Add button shrinks to a round + while scrolling down, so it covers less.
-    let lastScroll = 0;
-    window.addEventListener(
-        'scroll',
-        () => {
-            const y = window.scrollY;
-            addButton.classList.toggle('compact', y > lastScroll && y > 80);
-            lastScroll = y;
-        },
-        {passive: true},
-    );
     document.addEventListener('pointerdown', rememberTap, true);
 
     refresh().then(syncNow);
