@@ -4,6 +4,7 @@ import {test} from 'node:test';
 import {createApp} from './app.js';
 import {AuthError} from './remote/errors.js';
 import {memoryRemote, memoryStore} from './testing.js';
+import {seal} from './vault.js';
 
 const crypto = globalThis.crypto;
 
@@ -541,10 +542,166 @@ test('edits to different fields on two devices both survive; same-field edits ar
     const [onMac, onPhone] = [mac.getEntry(id), phone.getEntry(id)];
     assert.deepEqual([onMac.note, onMac.merchant], ['from phone', 'Supermarket']);
     assert.deepEqual(onMac, onPhone);
-    assert.equal(phone.boot().conflicts.length, 1);
-    assert.match(phone.boot().conflicts[0], /mac changed amount of "Supermarket" from "-99.00" to "-98.00"/);
+    assert.deepEqual(phone.boot().conflicts, [
+        {
+            kind: 'txn',
+            id,
+            title: 'Expense "Supermarket"',
+            by: 'mac',
+            type: 'changed',
+            changes: [{label: 'Amount', mine: '\u2212₹99.00', theirs: '\u2212₹98.00', time: false}],
+            canOpen: true,
+            canRestore: false,
+        },
+    ]);
     await phone.dismissConflicts();
     assert.deepEqual(phone.boot().conflicts, []);
+});
+
+/** Two synced devices with their own clocks, for edits made on both before they sync again. */
+async function twoDevices() {
+    const remote = memoryRemote();
+    const mac = await newApp(remote);
+    await mac.app.createProject({name: 'Home', currency: 'INR', decimals: 2});
+    await mac.app.connect(SYNC);
+    const phone = await newApp(remote);
+    await phone.app.join({...SYNC, deviceName: 'iphone'});
+    const syncAll = async () => {
+        await mac.app.sync();
+        await phone.app.sync();
+        await mac.app.sync();
+    };
+    return {mac: mac.app, phone: phone.app, macClock: mac.clock, phoneClock: phone.clock, syncAll};
+}
+
+const accountIds = (app) => Object.fromEntries(app.boot().accounts.map((a) => [a.name, a.id]));
+
+test('related fields edited on two devices never merge into an entry that cannot be read', async (t) => {
+    await t.test('a transfer keeps both its accounts from the same edit', async () => {
+        const {mac, phone, macClock, phoneClock, syncAll} = await twoDevices();
+        await mac.saveEntry({
+            type: 'transfer',
+            amount: '500',
+            from: 'new:Cash',
+            to: 'new:Card',
+            note: 'ATM',
+            date: '2026-11-15',
+            clock: '',
+        });
+        await mac.saveEntry({...expense, account: 'new:Bank'});
+        await syncAll();
+        const ids = accountIds(phone);
+        const id = phone.ledger().days[0].rows.find((r) => r.kind === 'transfer').id;
+        macClock.advance(1000);
+        phoneClock.advance(2000);
+        await mac.saveEntry({...mac.getEntry(id), from: ids.Bank});
+        await phone.saveEntry({...phone.getEntry(id), to: ids.Bank});
+        await syncAll();
+        for (const app of [mac, phone]) {
+            assert.deepEqual(app.boot().problems, []);
+            const entry = app.getEntry(id);
+            assert.deepEqual([entry.from, entry.to], [ids.Cash, ids.Bank], 'the later edit wins both accounts');
+        }
+    });
+
+    await t.test('an itemised bill keeps its amount and items from the same edit', async () => {
+        const {mac, phone, macClock, phoneClock, syncAll} = await twoDevices();
+        const items = [
+            {category: 'new:Food', amount: '100', note: 'rice'},
+            {category: 'new:Home', amount: '50', note: 'soap'},
+        ];
+        await mac.saveEntry({...expense, amount: '', category: '', splits: items});
+        await syncAll();
+        const id = phone.ledger().days[0].rows[0].id;
+        phoneClock.advance(1000);
+        macClock.advance(2000);
+        const onPhone = phone.getEntry(id);
+        await phone.saveEntry({...onPhone, splits: [{...onPhone.splits[0], amount: '120'}, onPhone.splits[1]]});
+        const onMac = mac.getEntry(id);
+        await mac.saveEntry({
+            ...onMac,
+            splits: [
+                {...onMac.splits[0], amount: '90'},
+                {...onMac.splits[1], amount: '60'},
+            ],
+        });
+        await syncAll();
+        for (const app of [mac, phone]) {
+            assert.deepEqual(app.boot().problems, []);
+            const entry = app.getEntry(id);
+            assert.deepEqual([entry.amount, entry.splits.map((s) => s.amount)], ['150.00', ['90.00', '60.00']]);
+        }
+    });
+});
+
+test('notes about other devices only appear for real conflicts, and read plainly', async (t) => {
+    await t.test('a later edit on another device is not a conflict', async () => {
+        const {mac, phone, phoneClock, syncAll} = await twoDevices();
+        await mac.saveEntry(expense);
+        await syncAll();
+        phoneClock.advance(60 * 60 * 1000);
+        const id = phone.ledger().days[0].rows[0].id;
+        await phone.saveEntry({...phone.getEntry(id), note: 'lunch with Asha'});
+        await syncAll();
+        assert.equal(mac.getEntry(id).note, 'lunch with Asha');
+        assert.deepEqual(mac.boot().conflicts, []);
+    });
+
+    await t.test('a conflicting edit names categories and amounts, not ids and stored values', async () => {
+        const {mac, phone, macClock, phoneClock, syncAll} = await twoDevices();
+        await mac.saveEntry(expense);
+        await mac.saveEntry({...expense, merchant: 'Cinema', category: 'new:Fun'});
+        await syncAll();
+        const cats = Object.fromEntries(mac.boot().categories.map((c) => [c.name, c.id]));
+        const id = mac.ledger().days[0].rows.find((r) => r.merchant === 'Market').id;
+        macClock.advance(1000);
+        phoneClock.advance(2000);
+        await mac.saveEntry({...mac.getEntry(id), category: cats.Fun});
+        await phone.saveEntry({...phone.getEntry(id), category: ''});
+        await syncAll();
+        assert.deepEqual(
+            mac.boot().conflicts.map((c) => [c.title, c.by, c.changes]),
+            [['Expense "Market"', 'iphone', [{label: 'Category', mine: 'Fun', theirs: 'Uncategorized', time: false}]]],
+        );
+        await mac.saveEntry({...mac.getEntry(id), category: cats.Fun});
+        assert.deepEqual(mac.boot().conflicts, [], 'saving the entry settles its note');
+    });
+
+    await t.test('an entry deleted on another device while edited here can be restored', async () => {
+        const {mac, phone, macClock, phoneClock, syncAll} = await twoDevices();
+        await mac.saveEntry(expense);
+        await syncAll();
+        const id = mac.ledger().days[0].rows[0].id;
+        macClock.advance(1000);
+        phoneClock.advance(2000);
+        await mac.saveEntry({...mac.getEntry(id), note: 'with Asha'});
+        await phone.deleteEntry(id);
+        await syncAll();
+        assert.equal(mac.ledger().count, 0);
+        const [note] = mac.boot().conflicts;
+        assert.deepEqual([note.type, note.title, note.by, note.canRestore], ['deleted', 'Expense "Market"', 'iphone', true]);
+        await mac.restoreDeleted('txn', id);
+        assert.deepEqual([mac.getEntry(id).note, mac.boot().conflicts], ['with Asha', []]);
+        await syncAll();
+        assert.equal(phone.getEntry(id).note, 'with Asha', 'the restored entry syncs back');
+    });
+
+    await t.test('an entry deleted here and edited elsewhere comes back with a note', async () => {
+        const {mac, phone, macClock, phoneClock, syncAll} = await twoDevices();
+        await mac.saveEntry(expense);
+        await syncAll();
+        const id = mac.ledger().days[0].rows[0].id;
+        macClock.advance(1000);
+        phoneClock.advance(2000);
+        await mac.deleteEntry(id);
+        await phone.saveEntry({...phone.getEntry(id), note: 'keep this'});
+        await syncAll();
+        assert.equal(mac.getEntry(id).note, 'keep this');
+        assert.deepEqual(
+            mac.boot().conflicts.map((c) => [c.type, c.title, c.canOpen]),
+            [['restored', 'Expense "Market"', true]],
+        );
+    });
 });
 
 test('connect refuses a repo that already has data; join refuses an empty one or a device with a project', async () => {
@@ -584,4 +741,38 @@ test('changing the passphrase keeps the data readable for new devices; erase cle
     await app.eraseDevice();
     assert.equal((await createApp({store, crypto, clock, makeRemote: () => remote})).boot().needsSetup, true);
     assert.ok(remote.files.has('vault.json'));
+});
+
+test('an entry an older app left unreadable is listed, and can be opened, fixed and saved', async () => {
+    const {app, remote, store} = await withProject();
+    await app.connect(SYNC);
+    await app.saveEntry({type: 'transfer', amount: '500', from: 'new:Cash', to: 'new:Card', note: 'ATM', date: '2026-11-15', clock: ''});
+    await app.saveEntry({...expense, account: 'new:Bank'});
+    await app.sync();
+    const ids = accountIds(app);
+    const id = app.ledger().days[0].rows.find((r) => r.kind === 'transfer').id;
+    // An older app on another device changed only the destination, to the source account.
+    const device = '01JB0000000000000000000BBB';
+    const path = `devices/${device}/00000001.bin`;
+    const change = {kind: 'transfer', id, op: 'put', clock: `${Date.UTC(2026, 10, 15, 5)}-0000`, device, fields: {to: ids.Cash}};
+    await remote.create(path, await seal(crypto, /** @type {CryptoKey} */ (store.data.key), path, `${JSON.stringify(change)}\n`));
+    await app.sync();
+    assert.deepEqual(
+        app.boot().problems.map((p) => [p.kind, p.id, p.canFix, p.text]),
+        [['transfer', id, true, 'Transfer "ATM" can\'t be shown: a transfer needs two different accounts.']],
+    );
+    await app.saveEntry({...app.getEntry(id), to: ids.Bank});
+    assert.deepEqual(app.boot().problems, []);
+    assert.deepEqual([app.getEntry(id).from, app.getEntry(id).to], [ids.Cash, ids.Bank]);
+});
+
+test('a device whose clock is days ahead is named, so its date settings can be fixed', async () => {
+    const {mac, phone, phoneClock, syncAll} = await twoDevices();
+    phoneClock.advance(3 * 24 * 60 * 60 * 1000);
+    await phone.saveEntry(expense);
+    await syncAll();
+    assert.deepEqual(mac.boot().clockWarnings, [
+        'The clock on iphone is 3 days ahead of this one. Until it is fixed, its edits win over ones made at the same time on your other devices. Check its date and time settings.',
+    ]);
+    assert.deepEqual(phone.boot().clockWarnings, [], "the mac only carried on from the phone's clock");
 });

@@ -141,6 +141,8 @@ export function entriesApi(ws) {
                     await ws.remove(existing.kind, input.id);
                     await ws.put(kind, ws.newId(), fields);
                 }
+                // Saving an entry settles whatever another device did to it, so its notes go.
+                await ws.book.dismissConflicts(existing.kind, input.id);
             } else if (input.repeat?.every) {
                 const repeatId = ws.newId();
                 const date = fields.time.slice(0, 10);
@@ -161,6 +163,7 @@ export function entriesApi(ws) {
         async deleteEntry(id) {
             const {kind, fields} = findEntry(id);
             await ws.remove(kind, id);
+            await ws.book.dismissConflicts(kind, id);
             return {kind, id, fields};
         },
 

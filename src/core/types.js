@@ -4,7 +4,7 @@
  * @typedef {'txn' | 'transfer' | 'category' | 'account' | 'budget' | 'recurring' | 'setting' | 'device'} Kind
  *
  * One line of a log file: a put sets some fields; a delete is a tombstone.
- * @typedef {{kind: Kind, id: string, op: 'put' | 'delete', clock: string, device: string, fields?: Record<string, unknown>}} Change
+ * @typedef {{kind: Kind, id: string, op: 'put' | 'delete', clock: string, device: string, fields?: Record<string, unknown>, base?: Record<string, string>}} Change
  *
  * A field value and the stamp of the change that set it.
  * @typedef {{value: unknown, clock: string, device: string}} Stamped

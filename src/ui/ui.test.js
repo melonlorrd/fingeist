@@ -310,3 +310,55 @@ test('every screen and dialog with a full book', async () => {
     await click('Delete', dialog());
     assert.equal(app.boot().categories.length, categoriesBefore - 1, 'the category is deleted');
 });
+
+test('notes about other devices read as sentences, and a deleted entry can be restored', async () => {
+    const remote = memoryRemote();
+    const sync = {repo: 'me/data', token: 't', passphrase: 'correct horse', iterations: 1000};
+    const mac = await createApp({store: memoryStore(), crypto: globalThis.crypto, clock, makeRemote: () => remote});
+    await mac.createProject({name: 'Home', currency: 'INR', decimals: 2});
+    await mac.connect({...sync, deviceName: 'mac'});
+    // The phone's edits come a minute after the mac's, so they are the ones kept.
+    const later = {...clock, now: () => ({...clock.now(), ms: clock.now().ms + 60000})};
+    const phone = await createApp({store: memoryStore(), crypto: globalThis.crypto, clock: later, makeRemote: () => remote});
+    await phone.join({...sync, deviceName: 'iphone'});
+    const base = {
+        type: 'expense',
+        account: 'new:Cash',
+        category: 'new:Food',
+        note: '',
+        tags: '',
+        intent: 'need',
+        date: '2026-11-14',
+        clock: '09:30',
+    };
+    await mac.saveEntry({...base, amount: '80', merchant: 'Cafe'});
+    await mac.saveEntry({...base, amount: '40', merchant: 'Bakery'});
+    await mac.sync();
+    await phone.sync();
+    const idOf = (name) =>
+        mac
+            .ledger()
+            .days.flatMap((d) => d.rows)
+            .find((r) => r.merchant === name)?.id ?? '';
+    const [cafe, bakery] = [idOf('Cafe'), idOf('Bakery')];
+    await mac.saveEntry({...mac.getEntry(cafe), note: 'with Asha'});
+    await mac.saveEntry({...mac.getEntry(bakery), amount: '45'});
+    await phone.deleteEntry(cafe);
+    await phone.saveEntry({...phone.getEntry(bakery), amount: '50'});
+    await phone.sync();
+    await mac.sync();
+
+    await start(mac);
+    const notes = () => document.querySelector('.sync-notes')?.textContent ?? '';
+    assertClean('notes from another device');
+    assert.match(notes(), /iphone deleted Expense "Cafe" while you were editing it here\./);
+    assert.match(
+        notes(),
+        /iphone changed Expense "Bakery" while you were editing it here\. Its version was kept:Amount: −₹45\.00 → −₹50\.00/,
+    );
+    await click('Restore my version');
+    assert.equal(mac.getEntry(cafe).note, 'with Asha', "the deleted entry is back with this device's edit");
+    assert.doesNotMatch(notes(), /Cafe/);
+    await click('Dismiss');
+    assert.equal(document.querySelector('.sync-notes'), null, 'no notes left');
+});

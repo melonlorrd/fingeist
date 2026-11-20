@@ -42,10 +42,12 @@ devices/<deviceId>/00000001.bin encrypted change log, one file per sync
 
 - **Log files** are a version byte, a 12-byte nonce, and AES-256-GCM ciphertext of JSON Lines, with the file's path as additional data. A device writes only under its own folder and never changes a file. `vault.json` is overwritten only when the passphrase changes.
 - **The data key** is wrapped with PBKDF2-SHA256 (600,000 iterations) from the passphrase. **Meta** holds the name, currency and decimal places, fixed at creation.
-- **Merge is per field:** a change carries only the fields it sets, and for each `(kind, id, field)` the value with the highest hybrid logical clock (`<ms>-<counter>`) wins, device id breaking ties. A delete is a tombstone; a later edit brings the record back. Edits to different fields on two devices both survive.
+- **Merge is per field:** a change carries only the fields it sets, and for each `(kind, id, field)` the value with the highest hybrid logical clock (`<ms>-<counter>`) wins, device id breaking ties. A delete is a tombstone; a later edit brings the record back. Edits to different fields on two devices both survive. Fields that must agree are written together whenever one changes, so they merge as one: a transaction's `amount`, `splits` and `refund`, and a transfer's `from` and `to`.
+- **`base`** (optional) maps each field a change replaced (every field, for a delete) to the clock of the version its device had. It is only used to tell a conflict from an ordinary later edit: another device's change replaced this device's value without seeing it when its base for that field is older. Older apps ignore it; changes without it are judged by whether this device's value had been uploaded when they were made.
+- A clock's counter is 0 when its device read its own time for it, and above 0 when it carried on from a later clock it had seen. A device that stamps a change with its own time more than a day ahead is reported, so its date settings can be fixed.
 
 ```json
-{"kind":"txn","id":"01KA…","op":"put","clock":"1763112600000-0000","device":"01KA…","fields":{"note":"dinner"}}
+{"kind":"txn","id":"01KA…","op":"put","clock":"1763112600000-0000","device":"01KA…","fields":{"note":"dinner"},"base":{"note":"1763112000000-0000"}}
 ```
 
 | `kind` | `id` | Fields |

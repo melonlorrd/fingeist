@@ -21,11 +21,11 @@ export function syncApi(ws, makeRemote) {
         status = {...status, state: 'syncing', message: ''};
         try {
             const r = makeRemote(local.remote);
-            await book.pull(r, crypto, local.key);
+            await book.pull(r, crypto, local.key, ws.clock.now().ms);
             ws.invalidate();
             await ws.applyDue();
             await book.seal(crypto, local.key);
-            await book.push(r);
+            await book.push(r, ws.clock.now().ms);
             status = {state: 'idle', message: '', lastSync: ws.clock.now().ms};
         } catch (err) {
             if (err instanceof AuthError) {

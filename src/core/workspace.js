@@ -6,6 +6,13 @@ import {dueEntries} from './recurring.js';
 import {liveRecord} from './state.js';
 import {ulid} from './ulid.js';
 
+// Fields that only make sense together. Writing them as one change gives them one stamp, so a merge takes all of them
+// from the same device: a transfer's two accounts, or an entry's amount with the items that add up to it.
+const TOGETHER = {
+    txn: [['amount', 'splits', 'refund']],
+    transfer: [['from', 'to']],
+};
+
 /**
  * @typedef {{now(): {ms: number, date: string, clock: string, offset: string}, offsetAt(date: string, clock: string): string}} Clock
  * @typedef {Awaited<ReturnType<typeof openWorkspace>>} Workspace
@@ -64,6 +71,7 @@ export async function openWorkspace({store, crypto, clock}) {
 
         /**
          * Writes only the fields that differ from the record as it stands, so other devices' edits to other fields survive.
+         * Fields that must agree with each other (TOGETHER) are written as a group when any of them changes.
          * @param {import('./types.js').Kind} kind
          * @param {string} id
          * @param {Record<string, unknown>} fields
@@ -73,6 +81,13 @@ export async function openWorkspace({store, crypto, clock}) {
             const changed = current
                 ? Object.fromEntries(Object.entries(fields).filter(([f, v]) => JSON.stringify(current[f]) !== JSON.stringify(v)))
                 : fields;
+            for (const group of TOGETHER[kind] ?? []) {
+                if (group.some((f) => f in changed)) {
+                    for (const f of group.filter((f) => f in fields)) {
+                        changed[f] = fields[f];
+                    }
+                }
+            }
             if (Object.keys(changed).length > 0) {
                 await ws.put(kind, id, changed);
             }

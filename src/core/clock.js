@@ -31,6 +31,15 @@ export function nextClock(last, nowMs) {
     return format(ms, counter + 1);
 }
 
+/**
+ * The time a device read from its own clock when it made this stamp, or null when the stamp only carries on from a
+ * later clock it had already seen (a counter above zero).
+ */
+export function wallTimeOf(clock) {
+    const [ms, counter] = parts(clock);
+    return counter === 0 ? ms : null;
+}
+
 export function laterClock(a, b) {
     return a > b ? a : b;
 }

@@ -17,11 +17,17 @@ export function checkEnvelope(change) {
         isClock(change.clock) &&
         typeof change.device === 'string' &&
         change.device !== '' &&
-        (change.op === 'delete' || (change.op === 'put' && isFields(change.fields)));
+        (change.op === 'delete' || (change.op === 'put' && isFields(change.fields))) &&
+        (change.base === undefined || isBase(change.base));
     if (!ok) {
         throw new Error('not a change record');
     }
     return change;
+}
+
+// base: for each field the change replaced, the clock of the value its device had (see README, Data format).
+function isBase(base) {
+    return base !== null && typeof base === 'object' && !Array.isArray(base) && Object.values(base).every(isClock);
 }
 
 function isFields(fields) {
@@ -96,6 +102,20 @@ export function live(winners, kind) {
 export function liveRecord(winners, kind, id) {
     const entry = winners[keyOf(kind, id)];
     return entry && isLive(entry) ? valuesOf(entry) : null;
+}
+
+/**
+ * A record's merged state: whether it is live, its values, each field's stamp and its tombstone.
+ * @returns {{live: boolean, values: Record<string, unknown>, stamps: Record<string, {clock: string, device: string}>,
+ *   tomb: {clock: string, device: string} | null} | null}
+ */
+export function recordState(winners, kind, id) {
+    const entry = winners[keyOf(kind, id)];
+    if (!entry) {
+        return null;
+    }
+    const stamps = Object.fromEntries(Object.entries(entry.fields).map(([f, {clock, device}]) => [f, {clock, device}]));
+    return {live: isLive(entry), values: valuesOf(entry), stamps, tomb: entry.tomb};
 }
 
 /** Whether the record was ever written or deleted, on any device. */

@@ -1,12 +1,20 @@
 import * as accounts from './accounts.js';
 import * as categories from './categories.js';
 import * as dashboard from './dashboard.js';
-import {dialogElement, el, fill, placePillHighlights, rememberTap, slideIn, slideOut} from './dom.js';
-import {openEntryForm} from './entry-form.js';
+import {dateText, dialogElement, el, fill, placePillHighlights, rememberTap, slideIn, slideOut} from './dom.js';
+import {editEntry, openEntryForm} from './entry-form.js';
 import {icon} from './icons.js';
 import * as ledger from './ledger.js';
 import * as settings from './settings.js';
 import {renderSetup} from './setup.js';
+
+/** A stored time for reading: "Nov 15, 2026, 09:30", or the date alone when the time is unknown. */
+function whenText(time) {
+    if (!/^\d{4}-\d{2}-\d{2}/.test(time)) {
+        return time;
+    }
+    return time.length > 10 ? `${dateText(time.slice(0, 10))}, ${time.slice(11, 16)}` : dateText(time);
+}
 
 const views = {
     dashboard: {label: 'Dashboard', render: dashboard.render},
@@ -130,6 +138,43 @@ export function startShell(app) {
     }
 
     // Runs a change, redraws, and schedules a sync. Returns an error message for the form, or ''.
+    // One note per entry: what the other device did, what it changed (its version was kept), and what can be done.
+    function conflictNote(c) {
+        const sentence = {
+            changed: `${c.by} changed ${c.title} while you were editing it here. Its version was kept:`,
+            deleted: `${c.by} deleted ${c.title} while you were editing it here.`,
+            restored: `${c.by} edited ${c.title} after you deleted it here, so it is back.`,
+        }[c.type];
+        return el(
+            'li',
+            {},
+            el('span', {}, sentence),
+            c.changes.length > 0
+                ? el(
+                      'ul',
+                      {className: 'note-changes'},
+                      c.changes.map((change) =>
+                          el(
+                              'li',
+                              {},
+                              el('span', {className: 'muted'}, `${change.label}: `),
+                              change.time ? whenText(change.mine) : change.mine,
+                              ' \u2192 ',
+                              el('strong', {}, change.time ? whenText(change.theirs) : change.theirs),
+                          ),
+                      ),
+                  )
+                : null,
+            el(
+                'span',
+                {className: 'note-actions'},
+                c.canRestore ? el('button', {onclick: () => perform(() => app.restoreDeleted(c.kind, c.id))}, 'Restore my version') : null,
+                c.canOpen ? el('button', {onclick: () => editEntry(ctx, c.id)}, 'Open') : null,
+                el('button', {className: 'quiet', onclick: () => perform(() => app.dismissConflicts(c.kind, c.id))}, 'Dismiss'),
+            ),
+        );
+    }
+
     async function perform(change) {
         showNotice('');
         try {
@@ -204,41 +249,55 @@ export function startShell(app) {
         );
         const problems = boot.problems ?? [];
         const conflicts = boot.conflicts ?? [];
+        const clockWarnings = boot.clockWarnings ?? [];
         fill(
             banner,
+            clockWarnings.length === 0
+                ? null
+                : el(
+                      'section',
+                      {className: 'notice sync-notes'},
+                      el('strong', {}, 'A device has the wrong time'),
+                      clockWarnings.map((text) => el('p', {}, text)),
+                  ),
             problems.length === 0
                 ? null
                 : el(
                       'section',
-                      {className: 'notice error'},
-                      el('strong', {}, "Some synced records can't be read. They are left out until the device that wrote them fixes them."),
+                      {className: 'notice error sync-notes'},
+                      el('strong', {}, "Some entries can't be shown"),
                       el(
                           'ul',
-                          {},
-                          problems.map((text) => el('li', {}, text)),
+                          {className: 'plain'},
+                          problems.map((p) =>
+                              el(
+                                  'li',
+                                  {},
+                                  el('span', {}, p.text),
+                                  p.canFix
+                                      ? el(
+                                            'span',
+                                            {className: 'note-actions'},
+                                            el('button', {onclick: () => editEntry(ctx, p.id)}, 'Open to fix'),
+                                            el(
+                                                'button',
+                                                {className: 'quiet danger', onclick: () => perform(() => app.deleteEntry(p.id))},
+                                                'Delete',
+                                            ),
+                                        )
+                                      : null,
+                              ),
+                          ),
                       ),
                   ),
             conflicts.length === 0
                 ? null
                 : el(
                       'section',
-                      {className: 'notice'},
-                      el('strong', {}, 'Another device changed something you had edited here. Its change was kept:'),
-                      el(
-                          'ul',
-                          {},
-                          conflicts.map((text) => el('li', {}, text)),
-                      ),
-                      el(
-                          'button',
-                          {
-                              onclick: async () => {
-                                  await app.dismissConflicts();
-                                  await refresh();
-                              },
-                          },
-                          'Dismiss',
-                      ),
+                      {className: 'notice sync-notes'},
+                      el('strong', {}, 'Changes from your other devices'),
+                      el('ul', {className: 'plain'}, conflicts.map(conflictNote)),
+                      conflicts.length > 1 ? el('button', {onclick: () => perform(() => app.dismissConflicts())}, 'Dismiss all') : null,
                   ),
         );
     }

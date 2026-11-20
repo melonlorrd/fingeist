@@ -215,7 +215,9 @@ small {
     z-index: 5;
     background: var(--bg);
     border-bottom: 0.5px solid var(--hairline);
-    padding: var(--safe-top) var(--safe-right) 0 var(--safe-left);
+    /* Under a notch or Dynamic Island, iOS 26 and later blur a band a little below the status bar, so the bar's
+       content starts a step lower there; where there is no safe area (a Mac, a browser tab) min() adds nothing. */
+    padding: calc(var(--safe-top) + min(var(--safe-top), 12px)) var(--safe-right) 0 var(--safe-left);
 }
 /* The glass lives on this layer, not on .topbar: a backdrop-filter makes an element the containing block of its
    fixed children, which would pull the phone tab bar and the Add button up into the top bar. */
@@ -530,6 +532,50 @@ nav.pills,
 }
 .notice.error {
     border-color: var(--danger);
+}
+/* Notes from sync: a card per kind, one item per entry with its changes and its own actions. */
+.sync-notes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-3);
+    padding: var(--card-py) var(--card-px);
+    margin-bottom: var(--s-4);
+}
+.sync-notes > ul.plain {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-3);
+}
+.sync-notes > ul.plain > li {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-2);
+}
+.sync-notes > ul.plain > li + li {
+    padding-top: var(--s-3);
+    border-top: 0.5px solid var(--hairline);
+}
+.sync-notes .note-changes {
+    margin: 0;
+    padding: 0 0 0 var(--s-3);
+    list-style: none;
+    border-left: 2px solid var(--line);
+    font-variant-numeric: tabular-nums;
+}
+.note-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+}
+.note-actions button,
+.sync-notes > button {
+    margin-left: 0;
+    min-height: var(--h-sm);
+}
+.sync-notes > button {
+    align-self: flex-start;
 }
 /* Notices float at the bottom of the screen, so Undo is in view however far the page is scrolled. */
 .toast {
@@ -1514,7 +1560,7 @@ dialog .form-actions {
     }
 }
 
-/* Phones and narrow windows: the nav floats at the bottom as a capsule, Add floats above it, dialogs become sheets. */
+/* Phones and narrow windows: the nav is a tab bar docked to the bottom edge, Add stays in the top bar, dialogs become sheets. */
 @media (max-width: 700px) {
     :root {
         --gutter: 14px;
