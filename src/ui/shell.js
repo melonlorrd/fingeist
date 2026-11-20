@@ -28,6 +28,24 @@ const SYNC_LABELS = {
     error: 'Sync failed',
 };
 
+// iOS lays the on-screen keyboard over the page instead of shrinking it, so bottom sheets would sit behind it.
+// The visual viewport is what stays visible; the gap below it is what the keyboard covers.
+function trackKeyboard() {
+    const viewport = window.visualViewport;
+    if (!viewport) {
+        return;
+    }
+    const root = document.documentElement;
+    const place = () => {
+        const covered = root.clientHeight - viewport.height - viewport.offsetTop;
+        root.style.setProperty('--keyboard', `${Math.max(0, Math.round(covered))}px`);
+        root.style.setProperty('--viewport-h', `${Math.round(viewport.height)}px`);
+    };
+    viewport.addEventListener('resize', place);
+    viewport.addEventListener('scroll', place);
+    place();
+}
+
 /** Draws the app into #app and keeps it in sync. app is core/app.js. */
 export function startShell(app) {
     let boot = null;
@@ -337,6 +355,7 @@ export function startShell(app) {
 
     // Sticky day headers sit just under the top bar, whose height changes with the screen and safe area.
     new ResizeObserver(() => document.documentElement.style.setProperty('--topbar-h', `${topbar.offsetHeight}px`)).observe(topbar);
+    trackKeyboard();
 
     // On phones the floating Add button shrinks to a round + while scrolling down, so it covers less.
     let lastScroll = 0;

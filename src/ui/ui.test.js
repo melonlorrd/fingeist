@@ -27,7 +27,6 @@ const GLOBALS = [
     'getComputedStyle',
     'matchMedia',
     'ResizeObserver',
-    'IntersectionObserver',
     'MutationObserver',
     'requestAnimationFrame',
 ];

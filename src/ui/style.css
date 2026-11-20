@@ -75,7 +75,8 @@
 
     /* Glass: floating layers over the page (bars, dialogs, popovers, notices). */
     --glass-blur: saturate(180%) blur(22px);
-    --glass-float: color-mix(in srgb, var(--surface) 80%, transparent);
+    --glass-bar: color-mix(in srgb, var(--bg) 62%, transparent);
+    --glass-float: color-mix(in srgb, var(--surface) 72%, transparent);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -191,26 +192,19 @@ small {
     color: var(--muted);
 }
 
-/* Top bar: a floating capsule, with the page scrolling past it. Only the status bar area of a phone is filled. */
+/* Top bar: a full-width bar over the page, like a native toolbar, glass where the browser can blur. */
 .topbar {
     position: sticky;
     top: 0;
     z-index: 5;
-    padding: calc(var(--safe-top) + 10px) calc(var(--gutter) + var(--safe-right)) 6px calc(var(--gutter) + var(--safe-left));
-    background: linear-gradient(to bottom, var(--bg) var(--safe-top), transparent var(--safe-top));
-    pointer-events: none;
+    background: var(--bg);
+    border-bottom: 0.5px solid var(--hairline);
+    padding: var(--safe-top) var(--safe-right) 0 var(--safe-left);
 }
 .topbar-inner {
-    pointer-events: auto;
-    max-width: calc(1120px - 2 * var(--gutter));
+    max-width: 1120px;
     margin: 0 auto;
-    padding: 6px 6px 6px var(--s-5);
-    border-radius: 999px;
-    background: var(--surface);
-    border: 0.5px solid var(--hairline);
-    box-shadow:
-        var(--shadow-raise),
-        inset 0 1px 0 var(--edge-light);
+    padding: var(--s-2) var(--gutter);
     display: flex;
     flex-wrap: wrap;
     gap: var(--s-2) var(--s-4);
@@ -231,7 +225,7 @@ small {
 .page {
     max-width: 1120px;
     margin: 0 auto;
-    padding: var(--s-3) calc(var(--gutter) + var(--safe-right)) calc(56px + var(--safe-bottom)) calc(var(--gutter) + var(--safe-left));
+    padding: var(--s-5) calc(var(--gutter) + var(--safe-right)) calc(56px + var(--safe-bottom)) calc(var(--gutter) + var(--safe-left));
     display: flex;
     flex-direction: column;
     gap: var(--s-4);
@@ -554,7 +548,8 @@ p.error {
     margin-bottom: var(--s-1);
 }
 .summary-card .change {
-    margin-top: 6px;
+    margin-top: auto;
+    padding-top: 6px;
 }
 /* Sized to the card, so a long amount shrinks instead of breaking between digits. */
 .big {
@@ -957,34 +952,17 @@ button.filter-chip {
 .stats dd.income {
     color: var(--income);
 }
-/* Each day's header stays under the top bar while its entries scroll past; once stuck (ledger.js marks it)
-   it becomes a floating capsule instead of a band across the page. */
+/* Each day's header stays under the top bar while its entries scroll past. It always has the page's own
+   background (glass where the browser can blur), so the rows scrolling under it never show through its text. */
 .day > header {
     position: sticky;
     top: var(--topbar-h, 0px);
     z-index: 2;
-    isolation: isolate;
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    padding: var(--s-2) var(--s-4);
-    margin-top: var(--s-1);
-    border-radius: 999px;
-}
-.day > header::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    border-radius: inherit;
-    background: var(--surface);
-    box-shadow:
-        var(--shadow-raise),
-        inset 0 1px 0 var(--edge-light);
-    opacity: 0;
-}
-.day > header.stuck::before {
-    opacity: 1;
+    padding: 10px var(--s-4) 6px;
+    background: var(--bg);
 }
 .day {
     margin-bottom: 2px;
@@ -1464,11 +1442,8 @@ dialog .form-actions {
         --tab-h: 58px;
         --island-bottom: max(10px, calc(var(--safe-bottom) - 8px));
     }
-    .topbar-inner {
-        padding: var(--s-2) var(--s-4);
-    }
     .page {
-        padding-top: var(--s-2);
+        padding-top: var(--s-3);
         padding-bottom: calc(var(--island-bottom) + var(--tab-h) + 88px);
         gap: var(--s-3);
     }
@@ -1537,7 +1512,8 @@ dialog .form-actions {
         transform: translateX(-50%);
         width: min(480px, calc(100% - 24px - var(--safe-left) - var(--safe-right)));
         display: flex;
-        padding: var(--s-1);
+        /* Wider at the ends than the top, so the end labels and the highlight clear the capsule's curve. */
+        padding: var(--s-1) 10px;
         border: 0.5px solid var(--hairline);
         background: var(--surface);
         box-shadow:
@@ -1584,10 +1560,11 @@ dialog .form-actions {
     }
 
     dialog {
-        margin: auto 0 0;
+        /* shell.js measures how much of the screen the on-screen keyboard covers, so the sheet sits on top of it. */
+        margin: auto 0 var(--keyboard, 0px);
         width: 100%;
         max-width: 100%;
-        max-height: calc(100dvh - var(--safe-top) - 12px);
+        max-height: calc(var(--viewport-h, 100dvh) - var(--safe-top) - 12px);
         border-radius: var(--r-float) var(--r-float) 0 0;
         padding: var(--dialog-pad) calc(var(--dialog-pad) + var(--safe-right)) var(--s-5) calc(var(--dialog-pad) + var(--safe-left));
     }
@@ -1689,29 +1666,50 @@ dialog .form-actions {
     }
 }
 
-/* Glass: floating layers turn translucent over a blur, unless the OS asks for reduced transparency. */
-@media (prefers-reduced-transparency: no-preference) {
-    @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-        .topbar-inner,
-        .day > header::before,
-        dialog,
-        .date-popover,
-        .toast,
-        dialog .form-actions {
+/* Glass: layers over the page turn translucent over a blur wherever the browser can blur. Safari doesn't know
+   prefers-reduced-transparency, so glass is the default and only "reduce" turns it off; asking for
+   "no-preference" instead would leave Safari without glass. */
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    .topbar,
+    .day > header {
+        background: var(--glass-bar);
+        -webkit-backdrop-filter: var(--glass-blur);
+        backdrop-filter: var(--glass-blur);
+    }
+    dialog,
+    .date-popover,
+    .toast,
+    dialog .form-actions {
+        background: var(--glass-float);
+        -webkit-backdrop-filter: var(--glass-blur);
+        backdrop-filter: var(--glass-blur);
+    }
+    .toast.error {
+        background: color-mix(in srgb, var(--danger) 10%, var(--glass-float));
+    }
+    @media (max-width: 700px) {
+        nav.tabs {
             background: var(--glass-float);
             -webkit-backdrop-filter: var(--glass-blur);
             backdrop-filter: var(--glass-blur);
         }
-        .toast.error {
-            background: color-mix(in srgb, var(--danger) 10%, var(--glass-float));
-        }
-        @media (max-width: 700px) {
-            nav.tabs {
-                background: var(--glass-float);
-                -webkit-backdrop-filter: var(--glass-blur);
-                backdrop-filter: var(--glass-blur);
-            }
-        }
+    }
+}
+@media (prefers-reduced-transparency: reduce) {
+    .topbar,
+    .day > header {
+        background: var(--bg);
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+    }
+    dialog,
+    .date-popover,
+    .toast,
+    dialog .form-actions,
+    nav.tabs {
+        background: var(--surface);
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
     }
 }
 
@@ -1734,9 +1732,6 @@ dialog .form-actions {
     button.stat-row:active {
         transform: scale(0.985);
         transition-duration: var(--t-fast);
-    }
-    .day > header::before {
-        transition: opacity var(--t-base) var(--ease);
     }
     .hint:not([hidden]) {
         animation: rise-in var(--t-base) var(--ease);
